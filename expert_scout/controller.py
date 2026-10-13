@@ -4,11 +4,23 @@ import time
 from .action import Action
 from .matching import match_detections
 from .simulator import CollectionTracker
+from .maps import map_name
 
 
 class ExpertController:
-    def __init__(self, config, grid, approach, collected):
+    def __init__(self, config, grid, approach, collected, search_areas=None, map_override="auto"):
         self.config, self.grid, self.approach, self.collected = config, grid, approach, collected
+        self.search_areas, self.map_override = search_areas, map_override
+        self.current_map = None
+        self.search_bounds = None
+        self.last_sim_time = None
+        self.new_session = False
+        self.map_epoch = 0
+        self.map_changed_at = None
+        self._reset_control()
+        self.approach._collect_box = self.reached
+
+    def _reset_control(self):
         self.phase = "searching"
         self.target_id = None
         self.target_detection = None
@@ -21,7 +33,21 @@ class ExpertController:
         self.flashes_left = 0
         self.next_flash_at = 0
         self.diver_paused = False
-        self.approach._collect_box = self.reached
+
+    def _select_map(self, name):
+        self._reset_control()
+        self.collected.clear()
+        self.approach.clear_target_box()
+        self.approach._clear_motion_keys()
+        area = self.search_areas[name]
+        self.grid.set_search_area(area)
+        self.current_map, self.search_bounds = name, area.to_dict()
+        self.new_session = False
+        self.map_epoch += 1
+        self.map_changed_at = time.time()
+        self.event = "map_selected"
+        print(f"Map: {name}, grid X=[{area.x_min:.3f}, {area.x_max:.3f}], "
+              f"Z=[{area.z_min:.3f}, {area.z_max:.3f}]")
 
     def reached(self, box_id):
         if self.phase == "approaching" and box_id == self.target_id:
@@ -65,14 +91,29 @@ class ExpertController:
     def step(self, snapshot, capture):
         now = time.time()
         self.event = None
-        self._collect(snapshot, now)
         pose = snapshot.get("latestPositions", {})
         state_age = now - snapshot.get("_sourceMtime", 0)
+        if snapshot.get("curState") in ("titleScreen", "endScreen", "outOfOxygen") and 0 <= state_age <= self.config.max_sensor_age_sec:
+            self.new_session = True
         if (snapshot.get("curState") != "searching" or not pose.get("auvPosition") or not pose.get("auvRotation")
                 or not 0 <= state_age <= self.config.max_sensor_age_sec):
+            if snapshot.get("curState") != "searching" and 0 <= state_age <= self.config.max_sensor_age_sec:
+                self.collection_tracker.update(snapshot)
             return self._record(Action.none(source="telemetry_wait"))
+        if self.search_areas is not None:
+            name = map_name(snapshot, self.map_override)
+            if name is None:
+                return self._record(Action.none(source="waiting_for_map"), phase="waiting_for_map")
+            sim_time = snapshot.get("totalTime")
+            restarted = (isinstance(sim_time, (float, int)) and self.last_sim_time is not None
+                         and sim_time < self.last_sim_time)
+            if name != self.current_map or restarted or self.new_session:
+                self._select_map(name)
+            self.last_sim_time = sim_time if isinstance(sim_time, (float, int)) else None
+        self._collect(snapshot, now)
         matches = []
-        if capture is not None and 0 <= now - capture.timestamp <= self.config.max_sensor_age_sec:
+        if (capture is not None and 0 <= now - capture.timestamp <= self.config.max_sensor_age_sec
+                and (self.map_changed_at is None or capture.timestamp >= self.map_changed_at)):
             matches = match_detections(snapshot, capture.detections, capture.width, self.config)
             for match in matches:
                 match["timestamp"] = capture.timestamp
@@ -110,6 +151,7 @@ class ExpertController:
             action = self._grid_action(snapshot)
         return self._record(action)
 
-    def _record(self, action):
-        return {"phase": self.phase, "event": self.event, "target_box_id": self.target_id,
+    def _record(self, action, phase=None):
+        return {"phase": phase or self.phase, "map_name": self.current_map, "map_epoch": self.map_epoch,
+                "search_bounds": self.search_bounds, "event": self.event, "target_box_id": self.target_id,
                 "target_detection": self.target_detection, "collected_box_ids": list(self.collected), "action": action}

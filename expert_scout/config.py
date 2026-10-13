@@ -25,11 +25,12 @@ class Config:
     depth_jitter: float = 1.5
     diver_max_separation: float = 5.0
     diver_resume_separation: float = 3.0
+    map_profiles_path: str = "configs/maps.json"
     simulator_directory: str = "ONRScubaCFF"
     output_directory: str = "logs/expert"
 
     def validate(self):
-        for name in ("detector_path", "output_directory", "simulator_directory"):
+        for name in ("detector_path", "output_directory", "simulator_directory", "map_profiles_path"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name).strip():
                 raise ValueError(f"{name} must be a nonempty string")
         for name in ("detector_confidence", "medium_confidence", "high_confidence", "confidence_key_interval_sec", "camera_hfov_deg", "match_tolerance_deg", "collection_distance",

@@ -8,6 +8,7 @@ import time
 import uuid
 from .config import ROOT, load_config
 from .io import RunLog, TelemetryReader, atomic_json
+from .maps import load_search_areas
 
 
 def duration(value):
@@ -23,6 +24,8 @@ def build_parser():
     parser.add_argument("--grid-search-expert", action="store_true", help="Select the grid expert scout")
     parser.add_argument("--pid", required=True, type=int)
     parser.add_argument("--config", default=str(ROOT / "configs/expert.json"))
+    parser.add_argument("--map", choices=["auto", "training", "map1", "map2"], default="auto",
+                        help="Select grid bounds; auto reads the current simulator map")
     parser.add_argument("--sim-dir", help="Folder containing ONR Scuba.exe and OutputData")
     parser.add_argument("--state-file", help="Select a participant telemetry file")
     parser.add_argument("--monitor-index", type=int, help="Override the AUV capture monitor")
@@ -38,11 +41,12 @@ def main():
     args = parser.parse_args()
     try:
         config = load_config(args.config)
+        search_areas = load_search_areas(config.path("map_profiles_path"))
         if args.monitor_index is not None:
             config = replace(config, monitor_index=args.monitor_index).validate()
         if not config.path("detector_path").is_file():
             raise ValueError(f"YOLO checkpoint is missing: {config.path('detector_path')}")
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, KeyError, TypeError) as error:
         parser.error(str(error))
     from .actuator import KeyboardActuator, DryRunActuator
     from .approach import OracleBoxNavigator
@@ -59,7 +63,7 @@ def main():
     approach = OracleBoxNavigator(state, "scout", collected, lambda role: None, lambda box_id: None,
                                    collision_threshold=1.5, yaw_threshold=0.3,
                                    collection_distance=config.collection_distance)
-    controller = ExpertController(config, grid, approach, collected)
+    controller = ExpertController(config, grid, approach, collected, search_areas, args.map)
     sim_dir = Path(args.sim_dir).expanduser().resolve() if args.sim_dir else config.path("simulator_directory")
     reader = TelemetryReader(sim_dir / "OutputData", args.pid, args.state_file)
     detector = Detector(config.path("detector_path"), config.monitor_index, config.detector_confidence)
@@ -68,7 +72,7 @@ def main():
     episode = uuid.uuid4().hex
     run_dir = config.path("output_directory") / f"pid_{args.pid}" / episode
     run_dir.mkdir(parents=True)
-    atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec, simulator_path=str(sim_dir)))
+    atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec, simulator_path=str(sim_dir), map_selection=args.map))
     log = RunLog(run_dir / "actions.jsonl")
     print(f"Grid expert scout: participant {args.pid}, seed {seed}")
     print(f"Run outputs: {run_dir}")
@@ -92,7 +96,7 @@ def main():
             record["confidence_feedback"] = confidence_sender.update(record, snapshot, time.time())
             log.write(record)
             atomic_json(run_dir / "status.json", {k: record[k] for k in
-                        ("episode_id", "pid", "published_at", "phase", "event", "target_box_id", "target_detection", "confidence_feedback")})
+                        ("episode_id", "pid", "published_at", "phase", "event", "map_name", "map_epoch", "search_bounds", "target_box_id", "target_detection", "confidence_feedback")})
             mode = (record["phase"], action.source)
             if mode != previous or record["event"]:
                 print(f"Expert: {record['phase']}, box={record['target_box_id']}, controller={action.source}")

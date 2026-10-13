@@ -43,7 +43,7 @@ class ConfidenceSender:
         if not self._target_is_nearest(snapshot, box_id):
             result["reason"] = "target_not_nearest_to_auv"
             return result
-        identity = (box_id, level)
+        identity = (record.get("map_name"), record.get("map_epoch"), box_id, level)
         result["key"] = CONFIDENCE_KEYS[level]
         if identity == self.last_sent:
             result["reason"] = "unchanged"

@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import os
+import re
 import tempfile
 import time
 
@@ -37,6 +38,9 @@ class TelemetryReader:
         try:
             paths = [self.state_file] if self.state_file else list(
                 self.directory.glob(f"ParticipantData_PID_{self.pid}*.json"))
+            if not self.state_file:
+                pattern = re.escape(f"ParticipantData_PID_{self.pid}") + r"(?:_COPY_\d+)?\.json"
+                paths = [p for p in paths if re.fullmatch(pattern, p.name)]
             paths = [p for p in paths if p.is_file()]
             if not paths:
                 return self.latest

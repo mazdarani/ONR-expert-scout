@@ -117,3 +117,14 @@ def test_changed_content_is_read_even_when_file_timestamp_is_unchanged(tmp_path)
     path.write_text(json.dumps(value))
     os.utime(path,ns=(stamp,stamp))
     assert reader.read()['totalTime']==11
+
+
+def test_map_is_read_from_exact_participant_not_an_id_with_the_same_prefix(tmp_path):
+    import os
+    selected=tmp_path/'ParticipantData_PID_1_COPY_0.json'
+    other=tmp_path/'ParticipantData_PID_10.json'
+    selected.write_text(json.dumps(dict(snapshot(10),mapType=1)))
+    other.write_text(json.dumps(dict(snapshot(10),mapType=2)))
+    os.utime(selected,(100,100))
+    os.utime(other,(200,200))
+    assert TelemetryReader(tmp_path,1).read()['mapType']==1

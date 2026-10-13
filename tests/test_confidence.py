@@ -147,3 +147,23 @@ def test_modifier_is_released_even_when_number_release_fails():
 def test_invalid_category_configuration_is_rejected(medium,high):
     with pytest.raises(ValueError):
         replace(Config(),medium_confidence=medium,high_confidence=high).validate()
+
+
+def test_reused_box_id_on_another_map_sends_new_feedback(feedback):
+    feedback.record.update(map_name='map1',map_epoch=1)
+    feedback.sender.update(feedback.record,feedback.snapshot,100)
+    feedback.record.update(map_name='map2',map_epoch=2)
+    feedback.record['target_detection']['timestamp']=101
+    feedback.snapshot['_sourceMtime']=101
+    feedback.sender.update(feedback.record,feedback.snapshot,101)
+    assert feedback.keys==['shift+1','shift+1']
+
+
+def test_same_box_id_on_a_restarted_trial_sends_new_feedback(feedback):
+    feedback.record.update(map_name='map1',map_epoch=1)
+    feedback.sender.update(feedback.record,feedback.snapshot,100)
+    feedback.record['map_epoch']=2
+    feedback.record['target_detection']['timestamp']=101
+    feedback.snapshot['_sourceMtime']=101
+    feedback.sender.update(feedback.record,feedback.snapshot,101)
+    assert feedback.keys==['shift+1','shift+1']

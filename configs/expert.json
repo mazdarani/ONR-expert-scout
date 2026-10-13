@@ -7,5 +7,6 @@
   "simulator_directory": "ONRScubaCFF",
   "medium_confidence": 0.72,
   "high_confidence": 0.82,
-  "confidence_key_interval_sec": 0.75
+  "confidence_key_interval_sec": 0.75,
+  "map_profiles_path": "configs/maps.json"
 }

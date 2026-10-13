@@ -49,6 +49,7 @@ class OracleBoxNavigator(CollectorNavigator):
         self._next_box = None
 
     def action(self):
+        self._get_next_box()
         self.navigate()
         from .action import Action
         return Action.from_movement_keys(dict(self._movement_keys), source="expert")

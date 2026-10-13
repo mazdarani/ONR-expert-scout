@@ -125,6 +125,15 @@ class GridSearchNavigator(Navigator):
         )
         self._apply_motion(up, down, False, False, forward, False, yaw_left, yaw_right)
 
+    def set_search_area(self, area):
+        self._x_min, self._x_max = area.x_min, area.x_max
+        self._z_min, self._z_max = area.z_min, area.z_max
+        self._waypoints = []
+        self._waypoint_index = self._lap_count = 0
+        self._excluded_areas = []
+        self._target_y = None
+        self._rng = random.Random(self._seed)
+
     def reset(self):
         super().reset()
         self._waypoints = []

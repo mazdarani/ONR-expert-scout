@@ -8,5 +8,11 @@
     "boxTimeList[].boxID",
     "boxTimeList[].findTime"
   ],
-  "confidence_receiver_present": false
+  "confidence_receiver_present": false,
+  "maps": {
+    "0": "training",
+    "1": "map1",
+    "2": "map2"
+  },
+  "coordinate_space": "Unity world coordinates; Y is vertical; yaw is degrees"
 }

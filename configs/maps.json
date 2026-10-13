@@ -1,0 +1,26 @@
+{
+  "boundary_clearance_m": 2.0,
+  "areas": {
+    "training": {
+      "source": "TutorialBoxConstrain world bounds",
+      "x_min": -15.509,
+      "x_max": 19.471,
+      "z_min": -19.915,
+      "z_max": 34.255
+    },
+    "map1": {
+      "source": "MainBoxConstrain world bounds",
+      "x_min": -39.319,
+      "x_max": 60.681,
+      "z_min": -63.03,
+      "z_max": 86.97
+    },
+    "map2": {
+      "source": "MainBoxConstrain world bounds",
+      "x_min": -39.319,
+      "x_max": 60.681,
+      "z_min": -63.03,
+      "z_max": 86.97
+    }
+  }
+}

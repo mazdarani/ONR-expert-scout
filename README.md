@@ -103,3 +103,34 @@ nearest box to the AUV, matching the current panel's target selection. It logs
 sent status and any skip reason. A successful key press confirms transmission,
 not that Unity received or displayed it. Diver collection hides the panel and
 confirmed opened IDs prevent further approach or confidence signals.
+
+## Maps
+
+The build has `training` (two boxes), `map1` (five) and `map2` (five), with different
+box locations. The expert reads target positions from the current `boxTimeList`;
+no old target coordinates are used. X/Z are world coordinates, Y is vertical,
+and yaw is measured in degrees.
+
+Grid bounds now come from the build's world-space constraint volumes, with 2 m
+boundary clearance, rather than the earlier fixed rectangle. `training` uses
+TutorialBoxConstrain; map1/map2 share MainBoxConstrain. The profiles are in
+`configs/maps.json`. They contain search-area bounds, not box locations.
+
+| Map | Search X | Search Z |
+| --- | --- | --- |
+| training | −13.509 to 17.471 | −17.915 to 32.255 |
+| map1 / map2 | −37.319 to 58.681 | −61.030 to 84.970 |
+
+The map is selected automatically from telemetry `mapType` or `mapString`.
+Use `--map training`, `--map map1` or `--map map2` only when an explicit selection
+is needed. Unknown maps hold movement until a valid map or override is available.
+The selected map and bounds are printed and recorded in status/actions logs.
+Map changes, returns from the title/end screens, or restarted simulator clocks
+clear the previous route, target and opened-ID history, since the maps reuse
+box IDs. Camera frames captured before a map switch are ignored. Grid search
+continues without using live box coordinates; only a YOLO-triggered expert
+approach uses them.
+
+Checks use all twelve box positions extracted from the supplied build to test
+coverage, coordinate directions and matching. Live Unity movement and detector
+performance on each map still need testing on the simulator computer.
