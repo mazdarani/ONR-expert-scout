@@ -64,7 +64,16 @@ class TelemetryReader:
             if state is None and isinstance(value.get("latestPositions"), dict) and "totalTime" in value:
                 state = "endProgram" if str(value.get("endTime") or "").strip() else "searching"
             normalized = str(state or "").replace("_", "").replace("-", "").lower()
-            value["curState"] = {"searching": "searching", "endprogram": "endProgram"}.get(normalized, state)
+            # Unity state labels have varied in capitalization and separator use
+            # across builds. Normalize lifecycle states before the controller
+            # decides whether to hold position or reset a new session.
+            value["curState"] = {
+                "searching": "searching",
+                "titlescreen": "titleScreen",
+                "endscreen": "endScreen",
+                "endprogram": "endProgram",
+                "outofoxygen": "outOfOxygen",
+            }.get(normalized, state)
             value.update(PID=self.pid, _sourceMtime=stat.st_mtime, _loadedWallTime=time.time())
             self.latest = value
             self._source, self._stamp, self._content = path, stat.st_mtime_ns, content

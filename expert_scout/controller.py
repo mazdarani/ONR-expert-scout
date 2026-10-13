@@ -93,7 +93,7 @@ class ExpertController:
         self.event = None
         pose = snapshot.get("latestPositions", {})
         state_age = now - snapshot.get("_sourceMtime", 0)
-        if snapshot.get("curState") in ("titleScreen", "endScreen", "outOfOxygen") and 0 <= state_age <= self.config.max_sensor_age_sec:
+        if snapshot.get("curState") in ("titleScreen", "endScreen", "endProgram", "outOfOxygen") and 0 <= state_age <= self.config.max_sensor_age_sec:
             self.new_session = True
         if (snapshot.get("curState") != "searching" or not pose.get("auvPosition") or not pose.get("auvRotation")
                 or not 0 <= state_age <= self.config.max_sensor_age_sec):

@@ -78,7 +78,7 @@ def main():
     print(f"Grid expert scout: participant {args.pid}, seed {seed}")
     print(f"Run outputs: {run_dir}")
     print(f"Simulator telemetry: {args.state_file or sim_dir / 'OutputData'} ({location_source})")
-    print("Confidence keys (top row): 1=low, Shift+1=medium, Ctrl+1=high. Unity receiver required; this build has none.")
+    print("Confidence keys (top row): 1=low, Shift+1=medium, Ctrl+1=high.")
     previous = None
     previous_wait = None
     try:
@@ -89,14 +89,13 @@ def main():
                 raise RuntimeError(f"AUV capture failed: {detector.error}")
             snapshot = reader.read()
             telemetry = reader.diagnostics()
-            if snapshot.get("curState") == "endProgram":
-                break
             state.update(snapshot)
-            record = controller.step(snapshot, detector.snapshot())
+            capture = detector.snapshot()
+            record = controller.step(snapshot, capture)
             action = record.pop("action")
             record.update(episode_id=episode, pid=args.pid, published_at=time.time(),
                           selected_action=action.to_dict(), actuation=actuator.apply(action), telemetry=telemetry)
-            record["confidence_feedback"] = confidence_sender.update(record, snapshot, time.time())
+            record["confidence_feedback"] = confidence_sender.update(record, snapshot, time.time(), capture)
             log.write(record)
             status = {k: record[k] for k in
                       ("episode_id", "pid", "published_at", "phase", "event", "map_name", "map_epoch", "search_bounds",

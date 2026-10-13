@@ -200,6 +200,20 @@ def test_new_trial_on_same_map_resets_ids_even_if_global_clock_does_not_restart(
     assert record['map_epoch']==2
 
 
+@pytest.mark.parametrize('reset_state',['outOfOxygen','endProgram'])
+def test_oxygen_or_end_program_reset_clears_ids_for_the_next_session(run,reset_state):
+    run.snapshot['collectedBoxIds']=[0]
+    run.step()
+    del run.snapshot['collectedBoxIds']
+    run.snapshot['curState']=reset_state
+    run.step(101)
+    run.snapshot['curState']='searching'
+    run.snapshot['totalTime']=12
+    record=run.step(102)
+    assert record['collected_box_ids']==[]
+    assert record['map_epoch']==2
+
+
 def test_camera_frame_from_previous_map_cannot_trigger_new_target(run):
     run.snapshot['latestPositions']['auvRotation']['y']=math.degrees(math.atan2(
         POSITIONS['map1'][0]['position']['x'],POSITIONS['map1'][0]['position']['z'])) % 360

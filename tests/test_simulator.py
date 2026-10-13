@@ -94,6 +94,19 @@ def test_telemetry_handles_string_pid_copied_files_and_partial_writes(tmp_path):
     assert reader.read()['curState']=='endProgram'
 
 
+def test_telemetry_normalizes_new_build_lifecycle_state_names(tmp_path):
+    path=tmp_path/'ParticipantData_PID_0.json'
+    value=snapshot(10)
+    path.write_text(json.dumps(value))
+    reader=TelemetryReader(tmp_path,0)
+    assert reader.read()['curState']=='searching'
+    for source, expected in [('out_of_oxygen','outOfOxygen'), ('title-screen','titleScreen'),
+                             ('end_screen','endScreen'), ('end-program','endProgram')]:
+        value['curState']=source
+        path.write_text(json.dumps(value))
+        assert reader.read()['curState']==expected
+
+
 def test_simulator_path_can_be_supplied_without_changing_code():
     args=build_parser().parse_args(['--pid','0','--sim-dir',r'C:\Sim\ONRScubaCFF'])
     assert args.sim_dir==r'C:\Sim\ONRScubaCFF'

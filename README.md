@@ -1,46 +1,133 @@
 # ONR grid expert scout
 
-The AUV follows a randomized grid route until YOLO detects a box. The expert
-matches that detection to a simulator box and approaches using its coordinates.
-At 1.5 m it stops for the human-controlled diver to collect the box. After
-confirmed collection and a ten-second dwell, it resumes the same grid route.
+This project runs a YOLO-assisted AUV scout alongside the ONR Unity simulator.
+It captures the AUV camera, detects boxes, sends confidence hotkeys, and uses
+the simulator telemetry to drive the AUV grid search and box approach. The
+human-controlled diver still performs collection with `F`.
 
-```bat
-python main.py --role scout-expert --pid 0
+## What you need
+
+- Windows 10 or 11 with Python 3.11.
+- An AUV-view display. By default Python captures monitor `2`; use
+  `--monitor-index` if your AUV view is elsewhere.
+- The Unity simulator build, extracted locally as described below. It is
+  intentionally ignored by Git because it is a large binary build.
+- The included YOLO checkpoint:
+  `checkpoints/yolo_box_detector_cvat_yolov8n_e20_best.pt`.
+
+`requirements-expert.txt` installs the CUDA 12.1 PyTorch build. Use a
+CUDA-capable NVIDIA system, or replace its PyTorch lines with an appropriate
+CPU/other-CUDA build before installing.
+
+## Repository layout
+
+```text
+ONR-expert-scout/
+├── main.py                         # Command-line entry point
+├── requirements-expert.txt         # Python packages for the expert scout
+├── configs/
+│   ├── expert.json                 # Detector, simulator, and control settings
+│   └── maps.json                   # Grid-search map bounds
+├── checkpoints/
+│   └── yolo_box_detector_cvat_yolov8n_e20_best.pt
+├── expert_scout/                   # YOLO, telemetry, controls, and navigation
+├── modules/                        # Original project controller code
+├── tests/                          # Automated tests
+├── ONR_Scuba_Pilot/                # Local Unity build — required, Git-ignored
+│   ├── ONR Scuba.exe
+│   ├── ONR Scuba_Data/
+│   └── OutputData/                 # Created/updated by the simulator at runtime
+└── logs/                           # Generated run logs — Git-ignored
 ```
 
-Use Windows and Python 3.11. Create and activate a virtual environment, then
-install `requirements-expert.txt`. The trained YOLO checkpoint is included.
-Keep the AUV view on monitor 2 and the simulator focused while running.
-The diver view belongs on the other monitor. Only AUV keys are generated.
+## Install the Unity simulator
 
-Start the simulator first. On Windows, Python finds the running
-`ONR Scuba.exe` and reads `OutputData` beside it, even when the simulator is
-outside the repository. Use `--sim-dir "C:\path\to\ONRScubaCFF"` to select
-a folder explicitly. If no simulator is running, the configured folder is used;
-the default is `ONRScubaCFF/` inside this repository.
-Use the same participant ID in the simulator and Python. Telemetry is read from
-`OutputData/ParticipantData_PID_<id>*.json` beside the executable; the newest
+Download or obtain the ONR Unity build and extract the entire build folder into
+the repository root. Its executable must be at:
+
+```text
+ONR-expert-scout\ONR_Scuba_Pilot\ONR Scuba.exe
+```
+
+Keep every sibling file and folder that came with the executable, especially
+`ONR Scuba_Data`, `UnityPlayer.dll`, and the runtime folders. Do not copy only
+the `.exe`. `OutputData` must be writable because Unity writes participant
+telemetry there.
+
+If the simulator must live elsewhere, leave the repository layout unchanged and
+pass its containing folder when launching Python:
+
+```powershell
+python main.py --role scout-expert --pid 0 --sim-dir "C:\path\to\ONR_Scuba_Pilot"
+```
+
+The folder passed to `--sim-dir` must directly contain both `ONR Scuba.exe` and
+`OutputData`.
+
+When Unity is already running on Windows, Python automatically finds its
+`OutputData` folder beside the running `ONR Scuba.exe`, even if that build is
+outside this repository. Use the same participant ID in Unity and Python.
+Telemetry is read from `OutputData/ParticipantData_PID_<id>*.json`; the newest
 copy is selected and partial writes preserve the last complete snapshot.
 
-Settings are in `configs/expert.json`. Grid movement pauses when the diver is
-more than 5 m away and resumes within 3 m. The route uses the earlier expert
-randomization: 2.5 m waypoint jitter and 1.5 m depth jitter. Use `--seed 1234`
-to repeat a route. Use `--state-file <path>` for participant telemetry and
-`--monitor-index <n>` to select the AUV capture monitor.
+## Python setup
 
-The run has no default time limit. `--duration-sec 600` sets ten minutes;
-`--dry-run` logs requested actions without pressing keys. Stop with Ctrl+C.
-Runs write `config.json`, `actions.jsonl` and `status.json` under
-`logs/expert/pid_<id>/<episode>/`. Target detection confidence is the YOLO score.
-Expert movement uses simulator coordinates and does not load OpenVLA.
+From the repository root in PowerShell:
 
-The first commit contains the original ONR controller at
-`397c50b1dbf99a28ef55891e4c586ad91e07cebd`. The inherited `modules/` and
-`requirements.txt` are unchanged. `expert_scout/` contains the added mode;
-`main.py` dispatches it and keeps the original `scout` and `companion` roles.
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-expert.txt
+```
 
-```bat
+Confirm the included checkpoint is present before running:
+
+```powershell
+Test-Path .\checkpoints\yolo_box_detector_cvat_yolov8n_e20_best.pt
+```
+
+The command must return `True`.
+
+## Run a session
+
+1. Launch `ONR_Scuba_Pilot\ONR Scuba.exe`.
+2. In Unity, select participant ID `0` (or another ID) and start a scenario.
+3. Put the AUV camera on monitor `2`. Keep the diver view on the other display.
+4. In the activated Python environment, use the same participant ID:
+
+   ```powershell
+   python main.py --role scout-expert --pid 0
+   ```
+
+5. Click the Unity AUV window after Python starts. The generated keyboard input
+   is delivered to the foreground window, so it must be Unity—not PowerShell.
+
+The terminal should print the telemetry location and selected map. On a YOLO
+detection, it prints a line such as `YOLO: confidence=0.800, level=medium,
+key=SHIFT+1, sent=True`.
+
+Use `--monitor-index 1` to capture the first physical display, `--seed 1234`
+to repeat a route, `--duration-sec 600` for a ten-minute limit, and `--dry-run`
+to record requested actions without pressing keys. Stop with Ctrl+C.
+
+The default settings are in `configs/expert.json`. The grid pauses only when the
+diver is more than 100 m away. Runs are written to
+`logs/expert/pid_<id>/<episode>/` as `config.json`, `actions.jsonl`, and
+`status.json`.
+
+### Session resets and oxygen
+
+The current Unity build can end a session when the diver runs out of oxygen.
+Python recognizes `outOfOxygen`, title/end screens, and `endProgram` (including
+underscore or hyphenated variants). It releases all AUV movement, keeps the
+Python process running, and clears the previous session's target and collected
+box history when Unity returns to `searching`. Start the next Unity scenario
+with the same participant ID; Python does not need to be restarted.
+
+## Verify the installation
+
+```powershell
 python -m pip install pytest
 python -m pytest -q
 ```
@@ -60,17 +147,17 @@ supplies `collectedBoxIds`, those IDs are accepted directly. Opened IDs remain
 excluded for the rest of the run; a scout approach does not mark a box opened.
 
 The build has a box communication panel: `0` opens it, `9` closes it, and diver
-collection hides it. Its confidence is currently stored in the Unity cargo asset.
-It has no keyboard receiver for externally supplied confidence categories.
+collection hides it. The Unity receiver accepts the externally sent confidence
+categories.
 
 ## Confidence keys
 
-Python taps a key when the AUV has reached its target and a fresh YOLO score is
-available. It sends another only if that box's category changes, with at least
-0.75 seconds between taps. Matching uses the target box, rather than the highest
-score elsewhere in the image. Keys are not sent during grid search, approach,
-SAGAT, collection dwell or stale camera/telemetry updates. `--dry-run` reports
-which key would be sent. No keyboard listener or pause/stop hotkeys are added.
+Python taps a key immediately whenever YOLO detects a box-like object at or above
+the configured detector threshold. If more than one box is detected in a frame,
+the highest-confidence detection selects the category. Sending does not wait for
+target matching, AUV proximity, grid state, or fresh telemetry, and it repeats on
+every detected frame. `--dry-run` reports which key would be sent. No keyboard
+listener or pause/stop hotkeys are added.
 
 | YOLO score | Category | Key |
 | --- | --- | --- |
@@ -88,31 +175,26 @@ images before the experiment; changed lighting or camera settings can shift them
 Use the top-row `1` key, not numpad 1. Python presses the modifier first and
 releases it after the digit. On Windows it explicitly uses `VK_1` (0x31).
 
-**The inspected build does not receive these confidence-category keys yet.**
-The Unity team must bind each combination to update
-the nearest AUV box's feedback label to Low, Medium or High and show its panel
-or circle. `0` currently opens the panel using a stored Unity score; pressing it
-does not transfer YOLO confidence. Python sends the category key only; three
-combinations cannot carry the exact numeric score. The numeric score is saved in logs.
+The Unity receiver binds each combination to update the confidence feedback.
+Python sends the category key only; three combinations cannot carry the exact
+numeric score. The numeric score is saved in logs.
 
 The build also contains a legacy input map that assigns plain `1` to a camera
-change. Check whether that map is active when wiring the confidence receiver;
-the combinations must select their own categories, so Shift/Ctrl+1 must not also
-trigger the plain-1 handler.
+change. Check that this map does not override the confidence receiver; the
+Shift/Ctrl+1 combinations must select their own categories.
 
-The sender checks that the target is within collection distance and is the
-nearest box to the AUV, matching the current panel's target selection. It logs
-`confidence_feedback` in `actions.jsonl` and `status.json`: score, category, key,
-sent status and any skip reason. A successful key press confirms transmission,
-not that Unity received or displayed it. Diver collection hides the panel and
-confirmed opened IDs prevent further approach or confidence signals.
+The sender logs `confidence_feedback` in `actions.jsonl` and `status.json`:
+score, category, key, sent status and any skip reason. A successful key press
+confirms transmission, not that Unity received or displayed it.
 
 ## Maps
 
-The build has `training` (two boxes), `map1` (five) and `map2` (five), with different
-box locations. The expert reads target positions from the current `boxTimeList`;
-no old target coordinates are used. X/Z are world coordinates, Y is vertical,
-and yaw is measured in degrees.
+The build exposes `training`, `map1`, and `map2`, with different box locations.
+The controller does not assume a fixed number of boxes: it reads the current
+`boxTimeList`, uses the box IDs Unity provides, and tracks `boxesFound` only to
+confirm collection. X/Z are world coordinates, Y is vertical, and yaw is
+measured in degrees. A newly added map still needs a corresponding search-area
+profile in `configs/maps.json` before the grid can move on it.
 
 Grid bounds now come from the build's world-space constraint volumes, with 2 m
 boundary clearance, rather than the earlier fixed rectangle. `training` uses

@@ -1,6 +1,6 @@
 {
-  "build": "ONRScubaCFF",
-  "assembly_sha256": "0ff38f44b3439ebe8e5456586c665daec8b19a35f685e0d970bd618f33a3ddc2",
+  "build": "ONR_Scuba_Pilot",
+  "assembly_sha256": "bde1570faeecbdaef0527974e27aa4f4b3cfdc33086e05ceb68c7aaeb3e32a49",
   "telemetry_directory": "OutputData",
   "file_pattern": "ParticipantData_PID_<id>*.json",
   "collection_fields": [
@@ -8,7 +8,7 @@
     "boxTimeList[].boxID",
     "boxTimeList[].findTime"
   ],
-  "confidence_receiver_present": false,
+  "confidence_receiver_present": true,
   "maps": {
     "0": "training",
     "1": "map1",
