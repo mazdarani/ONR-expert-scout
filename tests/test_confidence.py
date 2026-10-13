@@ -1,5 +1,5 @@
 from dataclasses import replace
-from copy import deepcopy
+from unittest.mock import patch
 from types import SimpleNamespace
 import pytest
 
@@ -30,14 +30,14 @@ def test_score_and_key_are_for_the_reached_target(feedback):
     result=feedback.sender.update(feedback.record,feedback.snapshot,100)
     assert result['score']==.8
     assert result['level']=='medium'
-    assert feedback.keys==['f7']
+    assert feedback.keys==['shift+1']
     assert result['sent']
 
 
 def test_same_category_does_not_repeat_key(feedback):
     feedback.sender.update(feedback.record,feedback.snapshot,100)
     feedback.sender.update(feedback.record,feedback.snapshot,100.5)
-    assert feedback.keys==['f7']
+    assert feedback.keys==['shift+1']
 
 
 def test_category_change_is_rate_limited_then_sent(feedback):
@@ -46,7 +46,7 @@ def test_category_change_is_rate_limited_then_sent(feedback):
     assert feedback.sender.update(feedback.record,feedback.snapshot,100.2)['reason']=='rate_limited'
     result=feedback.sender.update(feedback.record,feedback.snapshot,100.75)
     assert result['level']=='high'
-    assert feedback.keys==['f7','f8']
+    assert feedback.keys==['shift+1','ctrl+1']
 
 
 @pytest.mark.parametrize('phase',['searching','approaching','collection_dwell','inactive'])
@@ -90,33 +90,57 @@ def test_same_category_for_a_new_box_is_sent_again(feedback):
     feedback.record['target_detection']['timestamp']=101
     feedback.snapshot['_sourceMtime']=101
     feedback.sender.update(feedback.record,feedback.snapshot,101)
-    assert feedback.keys==['f7','f7']
+    assert feedback.keys==['shift+1','shift+1']
 
 
 def test_dry_run_reports_key_without_claiming_it_was_sent(feedback):
     feedback.sender.actuator=DryRunActuator()
     result=feedback.sender.update(feedback.record,feedback.snapshot,100)
-    assert result['key']=='f7'
+    assert result['key']=='shift+1'
     assert not result['sent']
     assert result['actuation']['would_send']
 
 
-def test_function_key_is_pressed_and_released_once():
+@pytest.mark.parametrize('name,modifier',[('1',None),('shift+1','shift'),('ctrl+1','ctrl')])
+def test_top_row_number_chords_press_modifiers_first_and_release_last(name,modifier):
     events=[]
     keyboard=SimpleNamespace(press=lambda key: events.append(('press',key)),release=lambda key:events.append(('release',key)))
     actuator=KeyboardActuator(tap_duration=0,keyboard=keyboard)
-    assert actuator.tap_key('f6')['sent']
-    assert events==[('press','f6'),('release','f6')]
+    with patch('expert_scout.actuator.sys.platform','win32'):
+        assert actuator.tap_key(name)['sent']
+    digit=('vk',0x31)
+    expected=[('press',digit),('release',digit)]
+    if modifier:
+        expected=[('press',modifier),*expected,('release',modifier)]
+    assert events==expected
+    assert ('vk',0x61) not in [key for _,key in events]
 
 
-def test_hotkey_is_released_when_key_press_fails():
+@pytest.mark.parametrize('name,modifier',[('shift+1','shift'),('ctrl+1','ctrl')])
+def test_modifier_is_released_when_number_press_fails(name,modifier):
     events=[]
-    def fail(key):
-        raise RuntimeError('input failed')
-    actuator=KeyboardActuator(tap_duration=0,keyboard=SimpleNamespace(press=fail,release=events.append))
-    with pytest.raises(RuntimeError):
-        actuator.tap_key('f8')
-    assert events==['f8']
+    def press(key):
+        events.append(('press',key))
+        if key==('vk',0x31):
+            raise RuntimeError('input failed')
+    keyboard=SimpleNamespace(press=press,release=lambda key:events.append(('release',key)))
+    actuator=KeyboardActuator(tap_duration=0,keyboard=keyboard)
+    with patch('expert_scout.actuator.sys.platform','win32'), pytest.raises(RuntimeError):
+        actuator.tap_key(name)
+    assert events[-2:]==[('release',('vk',0x31)),('release',modifier)]
+
+
+def test_modifier_is_released_even_when_number_release_fails():
+    events=[]
+    def release(key):
+        events.append(('release',key))
+        if key==('vk',0x31):
+            raise RuntimeError('release failed')
+    keyboard=SimpleNamespace(press=lambda key:None,release=release)
+    actuator=KeyboardActuator(tap_duration=0,keyboard=keyboard)
+    with patch('expert_scout.actuator.sys.platform','win32'), pytest.raises(RuntimeError):
+        actuator.tap_key('ctrl+1')
+    assert events==[('release',('vk',0x31)),('release','ctrl')]
 
 
 @pytest.mark.parametrize('medium,high',[(.25,.82),(.82,.72),(.72,.72),(.72,1.1),(float('nan'),.82)])

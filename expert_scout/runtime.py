@@ -73,7 +73,7 @@ def main():
     print(f"Grid expert scout: participant {args.pid}, seed {seed}")
     print(f"Run outputs: {run_dir}")
     print(f"Simulator telemetry: {sim_dir / 'OutputData'}")
-    print("Confidence keys: F6=low, F7=medium, F8=high. Unity receiver required; this build has none.")
+    print("Confidence keys (top row): 1=low, Shift+1=medium, Ctrl+1=high. Unity receiver required; this build has none.")
     previous = None
     try:
         detector.start()

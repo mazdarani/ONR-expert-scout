@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import time
+import sys
 
 from .action import ACTION_KEYS, Action
 
@@ -97,14 +98,26 @@ class KeyboardActuator(BaseActuator):
         return result
 
     def tap_key(self, name):
-        from pynput.keyboard import Key
-        key = {"f6": Key.f6, "f7": Key.f7, "f8": Key.f8}[name]
+        from pynput.keyboard import Key, KeyCode
+        modifiers = {"1": (), "shift+1": (Key.shift,), "ctrl+1": (Key.ctrl,)}[name]
+        # Windows VK_1 selects the top-row digit; VK_NUMPAD1 is 0x61.
+        digit = KeyCode.from_vk(0x31) if sys.platform == "win32" else KeyCode.from_char("1")
+        pressed = []
         try:
-            self._keyboard.press(key)
+            for key in (*modifiers, digit):
+                pressed.append(key)
+                self._keyboard.press(key)
             if self._tap_duration > 0:
                 time.sleep(self._tap_duration)
         finally:
-            self._keyboard.release(key)
+            release_error = None
+            for key in reversed(pressed):
+                try:
+                    self._keyboard.release(key)
+                except Exception as error:
+                    release_error = release_error or error
+            if release_error is not None:
+                raise release_error
         return {"key": name, "sent": True, "actuator": "keyboard"}
 
     def stop_all(self) -> dict:

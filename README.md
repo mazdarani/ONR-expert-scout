@@ -71,9 +71,9 @@ which key would be sent. No keyboard listener or pause/stop hotkeys are added.
 
 | YOLO score | Category | Key |
 | --- | --- | --- |
-| 0.25 to below 0.72 | Low | F6 |
-| 0.72 to below 0.82 | Medium | F7 |
-| 0.82 to 1.00 | High | F8 |
+| 0.25 to below 0.72 | Low | 1 |
+| 0.72 to below 0.82 | Medium | Shift+1 |
+| 0.82 to 1.00 | High | Ctrl+1 |
 
 Scores below 0.25 are ignored. The cutoffs are configurable. They are based on
 5,202 distinct detection frames from six August 28 runs using the included
@@ -82,12 +82,20 @@ relative detector-score categories, not measured probabilities of correctness.
 Scores keep their original 0–1 scale. Recheck the cutoffs with this simulator's
 images before the experiment; changed lighting or camera settings can shift them.
 
-F6/F7/F8 are unused in the inspected build's input maps. **That build does not
-receive these category keys yet.** The Unity team must bind each key to update
+Use the top-row `1` key, not numpad 1. Python presses the modifier first and
+releases it after the digit. On Windows it explicitly uses `VK_1` (0x31).
+
+**The inspected build does not receive these confidence-category keys yet.**
+The Unity team must bind each combination to update
 the nearest AUV box's feedback label to Low, Medium or High and show its panel
 or circle. `0` currently opens the panel using a stored Unity score; pressing it
 does not transfer YOLO confidence. Python sends the category key only; three
-keys cannot carry the exact numeric score. The numeric score is saved in logs.
+combinations cannot carry the exact numeric score. The numeric score is saved in logs.
+
+The build also contains a legacy input map that assigns plain `1` to a camera
+change. Check whether that map is active when wiring the confidence receiver;
+the combinations must select their own categories, so Shift/Ctrl+1 must not also
+trigger the plain-1 handler.
 
 The sender checks that the target is within collection distance and is the
 nearest box to the AUV, matching the current panel's target selection. It logs
