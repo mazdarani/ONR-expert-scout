@@ -1,12 +1,12 @@
 import argparse
 
-from modules.auv.auv import AUV
-from modules.state.atomic_state import AtomicState
-from modules.state.buffered_observer import ManualObserver
 import os
 import time
 
 def main():
+    from modules.auv.auv import AUV
+    from modules.state.atomic_state import AtomicState
+    from modules.state.buffered_observer import ManualObserver
     parser = argparse.ArgumentParser(description="ONR Project Main")
     parser.add_argument(
         "--role",
@@ -75,4 +75,12 @@ def main():
 
    
 if __name__ == "__main__":
-    main()
+    role_parser = argparse.ArgumentParser(add_help=False)
+    role_parser.add_argument("--role")
+    role_parser.add_argument("--grid-search-expert", action="store_true")
+    selected, _ = role_parser.parse_known_args()
+    if selected.role == "scout-expert" or selected.grid_search_expert:
+        from expert_scout.runtime import main as expert_main
+        expert_main()
+    else:
+        main()

@@ -1,0 +1,16 @@
+{
+  "modules/state/atomic_state.py": "f7450b4b6bee168019cdd7d94a970abb8568fbc1993f4d0a1bb4786625e80dfd",
+  "modules/state/__init__.py": "a0d651cd95c37b64bd8060a96f25e61c34e85d7c5e3e60a012deb39512a18f93",
+  "modules/state/buffered_observer.py": "dcac3bcfb43e93a0170853ac684b536f86fbf17e07fe347cb00cb051390d86f1",
+  "modules/auv/auv.py": "a10cf3b62cab20c72d005f70840e69c064032ef07434e62d749ffb7e93b6581f",
+  "modules/auv/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "modules/auv/vision/yolo_cv.py": "7ea997faa018b71b81bafdf9e303914e240cf82c08b4366bae1313bdf82f8af5",
+  "modules/auv/vision/__init__.py": "78274b132429656f36e0ef2950ec88c67e5746079df73d9e2f270b44c24fc4ca",
+  "modules/auv/navigator/__init__.py": "667a94ded3fb187de42ffff79f6b575a56c3d64e437271c12f54a1783d0f865e",
+  "modules/auv/navigator/navigator.py": "0fbbfc672ac7f1709e7d77b26002f31fbeef15dbac1f8898004b84ba419b38f5",
+  "modules/auv/navigator/autonomous_navigator.py": "bf20dca877e30d118116cda1b6d89340f761829f0577dab7403333c79344ceac",
+  "modules/auv/navigator/static_navigator/scout_navigator.py": "514a8db1d567f2278cc86cadb527c0e3054916b37c42ba2a2e05bbef3347cb57",
+  "modules/auv/navigator/static_navigator/__init__.py": "8d8cd6a8807195da9f61b977aa7aababd2ee404a03f8196f3a90760158b3bf6b",
+  "modules/auv/navigator/static_navigator/companion_navigator.py": "9f29472eb7440fe2d7f9f94f0243b8acfcc69f66a258bf3dcc3eef13328272a8",
+  "requirements.txt": "9823891628407276a263a3fdbbd192301d6ed19495ee083cf63f9c53cf59036e"
+}

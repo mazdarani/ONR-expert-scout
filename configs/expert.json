@@ -1,0 +1,7 @@
+{
+  "detector_path": "checkpoints/yolo_box_detector_cvat_yolov8n_e20_best.pt",
+  "monitor_index": 2,
+  "detector_confidence": 0.25,
+  "collection_distance": 1.5,
+  "collection_dwell_sec": 10
+}

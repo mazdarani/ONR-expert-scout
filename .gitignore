@@ -15,3 +15,6 @@ models/
 
 *.mp4
 *.avi
+.venv/
+logs/
+.pytest_cache/
