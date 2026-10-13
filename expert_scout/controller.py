@@ -99,7 +99,17 @@ class ExpertController:
                 or not 0 <= state_age <= self.config.max_sensor_age_sec):
             if snapshot.get("curState") != "searching" and 0 <= state_age <= self.config.max_sensor_age_sec:
                 self.collection_tracker.update(snapshot)
-            return self._record(Action.none(source="telemetry_wait"))
+            if not snapshot.get("curState"):
+                reason = "missing_game_state"
+            elif snapshot.get("curState") != "searching":
+                reason = "game_not_searching"
+            elif not pose.get("auvPosition") or not pose.get("auvRotation"):
+                reason = "missing_auv_pose"
+            else:
+                reason = "stale_telemetry"
+            record = self._record(Action.none(source="telemetry_wait"))
+            record["wait_reason"] = reason
+            return record
         if self.search_areas is not None:
             name = map_name(snapshot, self.map_override)
             if name is None:

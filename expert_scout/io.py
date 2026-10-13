@@ -33,6 +33,9 @@ class TelemetryReader:
         self._source = None
         self._stamp = None
         self._content = None
+        self.status = "missing_file"
+        self.error = None
+        self.selected_path = self.state_file
 
     def read(self):
         try:
@@ -43,10 +46,14 @@ class TelemetryReader:
                 paths = [p for p in paths if re.fullmatch(pattern, p.name)]
             paths = [p for p in paths if p.is_file()]
             if not paths:
+                self.status = "missing_directory" if not self.state_file and not self.directory.is_dir() else "missing_file"
+                self.error = None
                 return self.latest
             path = max(paths, key=lambda p: p.stat().st_mtime_ns)
+            self.selected_path = path
             stat = path.stat()
             content = path.read_bytes()
+            self.status, self.error = "ready", None
             if path == self._source and stat.st_mtime_ns == self._stamp and content == self._content:
                 return self.latest
             value = json.loads(content)
@@ -61,10 +68,19 @@ class TelemetryReader:
             value.update(PID=self.pid, _sourceMtime=stat.st_mtime, _loadedWallTime=time.time())
             self.latest = value
             self._source, self._stamp, self._content = path, stat.st_mtime_ns, content
-        except (OSError, ValueError):
-            # The old source timestamp remains; freshness checks stop stale motion.
-            pass
+        except (OSError, ValueError) as error:
+            # Preserve the last source timestamp so stale motion remains blocked.
+            self.status = "read_error" if isinstance(error, OSError) else "invalid_json"
+            self.error = str(error)
         return self.latest
+
+    def diagnostics(self):
+        stamp = self.latest.get("_sourceMtime")
+        return {"status": self.status, "directory": str(self.directory),
+                "game_state": self.latest.get("curState"),
+                "age_sec": time.time() - stamp if stamp is not None else None,
+                "pattern": f"ParticipantData_PID_{self.pid}.json or _COPY_<n>.json",
+                "path": str(self.selected_path) if self.selected_path else None, "error": self.error}
 
 
 class RunLog:

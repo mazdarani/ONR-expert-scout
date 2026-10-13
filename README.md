@@ -14,8 +14,11 @@ install `requirements-expert.txt`. The trained YOLO checkpoint is included.
 Keep the AUV view on monitor 2 and the simulator focused while running.
 The diver view belongs on the other monitor. Only AUV keys are generated.
 
-Extract `ONRScubaCFF.zip` into this repository so the executable is at
-`ONRScubaCFF/ONR Scuba.exe`, or pass `--sim-dir "C:\path\to\ONRScubaCFF"`.
+Start the simulator first. On Windows, Python finds the running
+`ONR Scuba.exe` and reads `OutputData` beside it, even when the simulator is
+outside the repository. Use `--sim-dir "C:\path\to\ONRScubaCFF"` to select
+a folder explicitly. If no simulator is running, the configured folder is used;
+the default is `ONRScubaCFF/` inside this repository.
 Use the same participant ID in the simulator and Python. Telemetry is read from
 `OutputData/ParticipantData_PID_<id>*.json` beside the executable; the newest
 copy is selected and partial writes preserve the last complete snapshot.
@@ -134,3 +137,11 @@ approach uses them.
 Checks use all twelve box positions extracted from the supplied build to test
 coverage, coordinate directions and matching. Live Unity movement and detector
 performance on each map still need testing on the simulator computer.
+
+If movement reports `telemetry_wait`, read the accompanying message. It gives
+the folder/file in use and distinguishes missing files, incomplete JSON, stale
+updates, missing AUV pose and a game that has not entered searching. Match the
+participant ID in the launch command to the simulator. Telemetry must be from
+the executable you actually launched; copying the build elsewhere does not
+redirect another running simulator's output. `status.json` includes the selected
+telemetry path and read status.

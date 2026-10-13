@@ -197,3 +197,13 @@ def test_new_build_collected_id_stays_excluded_after_timer_disappears(setup):
     result=setup.step(102)
     assert result['phase']=='searching'
     assert result['target_box_id'] is None
+
+
+def test_telemetry_wait_reports_missing_pose_and_stale_source_separately(setup):
+    setup.snapshot['latestPositions'].pop('auvRotation')
+    assert setup.step()['wait_reason']=='missing_auv_pose'
+    setup.snapshot['latestPositions']['auvRotation']={'y':0}
+    with patch('time.time',return_value=103):
+        assert setup.controller.step(setup.snapshot,setup.capture)['wait_reason']=='stale_telemetry'
+    setup.snapshot['curState']='titleScreen'
+    assert setup.step()['wait_reason']=='game_not_searching'
