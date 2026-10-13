@@ -59,3 +59,39 @@ excluded for the rest of the run; a scout approach does not mark a box opened.
 The build has a box communication panel: `0` opens it, `9` closes it, and diver
 collection hides it. Its confidence is currently stored in the Unity cargo asset.
 It has no keyboard receiver for externally supplied confidence categories.
+
+## Confidence keys
+
+Python taps a key when the AUV has reached its target and a fresh YOLO score is
+available. It sends another only if that box's category changes, with at least
+0.75 seconds between taps. Matching uses the target box, rather than the highest
+score elsewhere in the image. Keys are not sent during grid search, approach,
+SAGAT, collection dwell or stale camera/telemetry updates. `--dry-run` reports
+which key would be sent. No keyboard listener or pause/stop hotkeys are added.
+
+| YOLO score | Category | Key |
+| --- | --- | --- |
+| 0.25 to below 0.72 | Low | F6 |
+| 0.72 to below 0.82 | Medium | F7 |
+| 0.82 to 1.00 | High | F8 |
+
+Scores below 0.25 are ignored. The cutoffs are configurable. They are based on
+5,202 distinct detection frames from six August 28 runs using the included
+trained detector: the 33rd and 67th percentiles were 0.722 and 0.819. These are
+relative detector-score categories, not measured probabilities of correctness.
+Scores keep their original 0–1 scale. Recheck the cutoffs with this simulator's
+images before the experiment; changed lighting or camera settings can shift them.
+
+F6/F7/F8 are unused in the inspected build's input maps. **That build does not
+receive these category keys yet.** The Unity team must bind each key to update
+the nearest AUV box's feedback label to Low, Medium or High and show its panel
+or circle. `0` currently opens the panel using a stored Unity score; pressing it
+does not transfer YOLO confidence. Python sends the category key only; three
+keys cannot carry the exact numeric score. The numeric score is saved in logs.
+
+The sender checks that the target is within collection distance and is the
+nearest box to the AUV, matching the current panel's target selection. It logs
+`confidence_feedback` in `actions.jsonl` and `status.json`: score, category, key,
+sent status and any skip reason. A successful key press confirms transmission,
+not that Unity received or displayed it. Diver collection hides the panel and
+confirmed opened IDs prevent further approach or confidence signals.

@@ -12,6 +12,9 @@ class Config:
     detector_path: str = "checkpoints/yolo_box_detector_cvat_yolov8n_e20_best.pt"
     monitor_index: int = 2
     detector_confidence: float = 0.25
+    medium_confidence: float = 0.72
+    high_confidence: float = 0.82
+    confidence_key_interval_sec: float = 0.75
     detection_frames: int = 1
     camera_hfov_deg: float = 90.0
     match_tolerance_deg: float = 25.0
@@ -29,7 +32,7 @@ class Config:
         for name in ("detector_path", "output_directory", "simulator_directory"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name).strip():
                 raise ValueError(f"{name} must be a nonempty string")
-        for name in ("detector_confidence", "camera_hfov_deg", "match_tolerance_deg", "collection_distance",
+        for name in ("detector_confidence", "medium_confidence", "high_confidence", "confidence_key_interval_sec", "camera_hfov_deg", "match_tolerance_deg", "collection_distance",
                      "collection_dwell_sec", "max_sensor_age_sec", "waypoint_jitter", "depth_jitter",
                      "diver_max_separation", "diver_resume_separation"):
             value = getattr(self, name)
@@ -39,6 +42,10 @@ class Config:
             raise ValueError("Invalid detector confidence or camera field of view")
         if not 0 < self.match_tolerance_deg <= 90 or self.collection_distance <= 0 or self.max_sensor_age_sec <= 0:
             raise ValueError("Distances, sensor age and matching tolerance must be positive")
+        if not self.detector_confidence < self.medium_confidence < self.high_confidence <= 1:
+            raise ValueError("Confidence cutoffs must increase from the detector threshold to 1")
+        if self.confidence_key_interval_sec <= 0:
+            raise ValueError("Confidence key interval must be positive")
         for name in ("monitor_index", "detection_frames"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:

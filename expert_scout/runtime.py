@@ -47,6 +47,7 @@ def main():
     from .actuator import KeyboardActuator, DryRunActuator
     from .approach import OracleBoxNavigator
     from .controller import ExpertController
+    from .confidence import ConfidenceSender
     from .grid import GridSearchNavigator
     from .state import AtomicState
     from .vision import Detector
@@ -63,6 +64,7 @@ def main():
     reader = TelemetryReader(sim_dir / "OutputData", args.pid, args.state_file)
     detector = Detector(config.path("detector_path"), config.monitor_index, config.detector_confidence)
     actuator = DryRunActuator() if args.dry_run else KeyboardActuator()
+    confidence_sender = ConfidenceSender(config, actuator)
     episode = uuid.uuid4().hex
     run_dir = config.path("output_directory") / f"pid_{args.pid}" / episode
     run_dir.mkdir(parents=True)
@@ -71,6 +73,7 @@ def main():
     print(f"Grid expert scout: participant {args.pid}, seed {seed}")
     print(f"Run outputs: {run_dir}")
     print(f"Simulator telemetry: {sim_dir / 'OutputData'}")
+    print("Confidence keys: F6=low, F7=medium, F8=high. Unity receiver required; this build has none.")
     previous = None
     try:
         detector.start()
@@ -86,9 +89,10 @@ def main():
             action = record.pop("action")
             record.update(episode_id=episode, pid=args.pid, published_at=time.time(),
                           selected_action=action.to_dict(), actuation=actuator.apply(action))
+            record["confidence_feedback"] = confidence_sender.update(record, snapshot, time.time())
             log.write(record)
             atomic_json(run_dir / "status.json", {k: record[k] for k in
-                        ("episode_id", "pid", "published_at", "phase", "event", "target_box_id", "target_detection")})
+                        ("episode_id", "pid", "published_at", "phase", "event", "target_box_id", "target_detection", "confidence_feedback")})
             mode = (record["phase"], action.source)
             if mode != previous or record["event"]:
                 print(f"Expert: {record['phase']}, box={record['target_box_id']}, controller={action.source}")

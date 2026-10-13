@@ -11,6 +11,7 @@ class Keyboard:
 
 keyboard = types.ModuleType('pynput.keyboard')
 keyboard.Controller = Keyboard
+keyboard.Key = types.SimpleNamespace(f6="f6", f7="f7", f8="f8")
 pynput = types.ModuleType('pynput')
 pynput.keyboard = keyboard
 sys.modules['pynput'] = pynput

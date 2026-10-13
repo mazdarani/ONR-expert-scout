@@ -96,6 +96,17 @@ class KeyboardActuator(BaseActuator):
             result["conflicts"] = conflicts
         return result
 
+    def tap_key(self, name):
+        from pynput.keyboard import Key
+        key = {"f6": Key.f6, "f7": Key.f7, "f8": Key.f8}[name]
+        try:
+            self._keyboard.press(key)
+            if self._tap_duration > 0:
+                time.sleep(self._tap_duration)
+        finally:
+            self._keyboard.release(key)
+        return {"key": name, "sent": True, "actuator": "keyboard"}
+
     def stop_all(self) -> dict:
         released = []
         for key in sorted(self._pressed):
@@ -134,6 +145,9 @@ class DryRunActuator(BaseActuator):
             result["conflicts"] = conflicts
         self.history.append(result)
         return result
+
+    def tap_key(self, name):
+        return {"key": name, "sent": False, "would_send": True, "actuator": "dry_run"}
 
     def stop_all(self) -> dict:
         released = sorted(self._pressed)
