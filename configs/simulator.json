@@ -1,0 +1,12 @@
+{
+  "build": "ONRScubaCFF",
+  "assembly_sha256": "0ff38f44b3439ebe8e5456586c665daec8b19a35f685e0d970bd618f33a3ddc2",
+  "telemetry_directory": "OutputData",
+  "file_pattern": "ParticipantData_PID_<id>*.json",
+  "collection_fields": [
+    "boxesFound",
+    "boxTimeList[].boxID",
+    "boxTimeList[].findTime"
+  ],
+  "confidence_receiver_present": false
+}

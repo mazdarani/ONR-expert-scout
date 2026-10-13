@@ -161,3 +161,39 @@ def test_bad_time_limits_are_rejected():
     for value in ('-1','nan','inf'):
         with pytest.raises(SystemExit):
             build_parser().parse_args(['--pid','0','--duration-sec',value])
+
+
+def test_new_build_count_increase_for_other_box_does_not_confirm_target(setup):
+    setup.snapshot['boxTimeList'][0]['boxPosition']['z']=1
+    setup.snapshot['totalTime']=10
+    setup.snapshot['boxTimeList'].append({'boxID':1,'boxPosition':{'x':10,'y':0,'z':10},'findTime':10})
+    setup.step()
+    setup.snapshot['totalTime']=11
+    setup.snapshot['boxesFound']=1
+    setup.snapshot['boxTimeList'][0]['findTime']=11
+    setup.step(101)
+    assert setup.controller.phase=='waiting_for_diver'
+    assert setup.collected==[1]
+
+
+def test_new_build_confirms_current_box_by_frozen_clock_and_count(setup):
+    setup.snapshot['boxTimeList'][0]['boxPosition']['z']=1
+    setup.snapshot['totalTime']=10
+    setup.step()
+    setup.snapshot['totalTime']=10.6
+    setup.snapshot['boxesFound']=1
+    result=setup.step(100.6)
+    assert result['phase']=='collection_dwell'
+    assert result['event']=='diver_collection_confirmed'
+    assert setup.collected==[0]
+
+
+def test_new_build_collected_id_stays_excluded_after_timer_disappears(setup):
+    setup.snapshot['collectedBoxIds']=[0]
+    setup.step()
+    del setup.snapshot['collectedBoxIds']
+    setup.snapshot['totalTime']=12
+    setup.snapshot['boxesFound']=1
+    result=setup.step(102)
+    assert result['phase']=='searching'
+    assert result['target_box_id'] is None

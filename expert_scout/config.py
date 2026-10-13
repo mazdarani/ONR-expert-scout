@@ -22,10 +22,11 @@ class Config:
     depth_jitter: float = 1.5
     diver_max_separation: float = 5.0
     diver_resume_separation: float = 3.0
+    simulator_directory: str = "ONRScubaCFF"
     output_directory: str = "logs/expert"
 
     def validate(self):
-        for name in ("detector_path", "output_directory"):
+        for name in ("detector_path", "output_directory", "simulator_directory"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name).strip():
                 raise ValueError(f"{name} must be a nonempty string")
         for name in ("detector_confidence", "camera_hfov_deg", "match_tolerance_deg", "collection_distance",

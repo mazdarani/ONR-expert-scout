@@ -3,5 +3,6 @@
   "monitor_index": 2,
   "detector_confidence": 0.25,
   "collection_distance": 1.5,
-  "collection_dwell_sec": 10
+  "collection_dwell_sec": 10,
+  "simulator_directory": "ONRScubaCFF"
 }

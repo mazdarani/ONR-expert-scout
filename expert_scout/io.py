@@ -31,6 +31,7 @@ class TelemetryReader:
         self.latest = {}
         self._source = None
         self._stamp = None
+        self._content = None
 
     def read(self):
         try:
@@ -41,9 +42,10 @@ class TelemetryReader:
                 return self.latest
             path = max(paths, key=lambda p: p.stat().st_mtime_ns)
             stat = path.stat()
-            if path == self._source and stat.st_mtime_ns == self._stamp:
+            content = path.read_bytes()
+            if path == self._source and stat.st_mtime_ns == self._stamp and content == self._content:
                 return self.latest
-            value = json.loads(path.read_bytes())
+            value = json.loads(content)
             if not isinstance(value, dict):
                 raise ValueError("Participant telemetry must contain a JSON object")
             state = next((value[k] for k in ("curState", "currState", "currentState", "stateName", "gameState")
@@ -54,7 +56,7 @@ class TelemetryReader:
             value["curState"] = {"searching": "searching", "endprogram": "endProgram"}.get(normalized, state)
             value.update(PID=self.pid, _sourceMtime=stat.st_mtime, _loadedWallTime=time.time())
             self.latest = value
-            self._source, self._stamp = path, stat.st_mtime_ns
+            self._source, self._stamp, self._content = path, stat.st_mtime_ns, content
         except (OSError, ValueError):
             # The old source timestamp remains; freshness checks stop stale motion.
             pass

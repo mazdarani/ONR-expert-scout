@@ -23,6 +23,7 @@ def build_parser():
     parser.add_argument("--grid-search-expert", action="store_true", help="Select the grid expert scout")
     parser.add_argument("--pid", required=True, type=int)
     parser.add_argument("--config", default=str(ROOT / "configs/expert.json"))
+    parser.add_argument("--sim-dir", help="Folder containing ONR Scuba.exe and OutputData")
     parser.add_argument("--state-file", help="Select a participant telemetry file")
     parser.add_argument("--monitor-index", type=int, help="Override the AUV capture monitor")
     parser.add_argument("--seed", type=int, help="Repeat a randomized grid route")
@@ -58,16 +59,18 @@ def main():
                                    collision_threshold=1.5, yaw_threshold=0.3,
                                    collection_distance=config.collection_distance)
     controller = ExpertController(config, grid, approach, collected)
-    reader = TelemetryReader(ROOT / "ONR_Scuba_Pilot/OutputData", args.pid, args.state_file)
+    sim_dir = Path(args.sim_dir).expanduser().resolve() if args.sim_dir else config.path("simulator_directory")
+    reader = TelemetryReader(sim_dir / "OutputData", args.pid, args.state_file)
     detector = Detector(config.path("detector_path"), config.monitor_index, config.detector_confidence)
     actuator = DryRunActuator() if args.dry_run else KeyboardActuator()
     episode = uuid.uuid4().hex
     run_dir = config.path("output_directory") / f"pid_{args.pid}" / episode
     run_dir.mkdir(parents=True)
-    atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec))
+    atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec, simulator_path=str(sim_dir)))
     log = RunLog(run_dir / "actions.jsonl")
     print(f"Grid expert scout: participant {args.pid}, seed {seed}")
     print(f"Run outputs: {run_dir}")
+    print(f"Simulator telemetry: {sim_dir / 'OutputData'}")
     previous = None
     try:
         detector.start()

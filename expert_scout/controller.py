@@ -3,6 +3,7 @@ import math
 import time
 from .action import Action
 from .matching import match_detections
+from .simulator import CollectionTracker
 
 
 class ExpertController:
@@ -15,7 +16,7 @@ class ExpertController:
         self.streak = 0
         self.candidate_id = None
         self.last_frame = None
-        self.collection_baseline = None
+        self.collection_tracker = CollectionTracker()
         self.dwell_until = None
         self.flashes_left = 0
         self.next_flash_at = 0
@@ -27,11 +28,8 @@ class ExpertController:
             self.phase, self.event = "waiting_for_diver", "box_reached"
 
     def _collect(self, snapshot, now):
-        ids = set(snapshot.get("collectedBoxIds", []))
-        if (self.phase == "waiting_for_diver" and self.collection_baseline is not None
-                and snapshot.get("boxesFound", 0) > self.collection_baseline):
-            ids.add(self.target_id)
-        self._apply_collection(ids, snapshot, now)
+        if 0 <= now - snapshot.get("_sourceMtime", 0) <= self.config.max_sensor_age_sec:
+            self._apply_collection(self.collection_tracker.update(snapshot), snapshot, now)
 
     def _apply_collection(self, ids, snapshot, now):
         for box_id in ids:
@@ -47,7 +45,7 @@ class ExpertController:
 
     def _finish(self):
         self.phase, self.event = "searching", "grid_resumed"
-        self.target_id = self.target_detection = self.collection_baseline = None
+        self.target_id = self.target_detection = None
         self.approach.clear_target_box()
         self.streak = 0
 
@@ -101,7 +99,6 @@ class ExpertController:
             else:
                 action = self.approach.action()
                 if self.event == "box_reached":
-                    self.collection_baseline = snapshot.get("boxesFound")
                     action = Action.none(source="waiting_for_diver")
         elif self.phase in ("waiting_for_diver", "collection_dwell"):
             action = Action.none(source=self.phase)
