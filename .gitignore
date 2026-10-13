@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+
+.vscode/
+
+ONR_Scuba_Pilot*/
+Simulator/
+participant_data/
+training_materials/
+detection_images/
+
+models/
+
+~$*
+
+*.mp4
+*.avi
