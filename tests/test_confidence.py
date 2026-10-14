@@ -34,15 +34,15 @@ def test_detection_sends_immediately_without_target_or_telemetry_conditions(feed
     result = feedback.sender.update(feedback.record, feedback.snapshot, 100, feedback.capture)
     assert result['score'] == .8
     assert result['level'] == 'medium'
-    assert result['key'] == 'shift+1'
+    assert result['key'] == 'shift+2'
     assert result['sent']
-    assert feedback.keys == ['shift+1']
+    assert feedback.keys == ['shift+2']
 
 
 def test_each_detected_frame_sends_a_key(feedback):
     feedback.sender.update(feedback.record, feedback.snapshot, 100, feedback.capture)
     feedback.sender.update(feedback.record, feedback.snapshot, 100.01, feedback.capture)
-    assert feedback.keys == ['shift+1', 'shift+1']
+    assert feedback.keys == ['shift+2', 'shift+2']
 
 
 def test_highest_confidence_box_in_a_frame_selects_the_key(feedback):
@@ -52,7 +52,7 @@ def test_highest_confidence_box_in_a_frame_selects_the_key(feedback):
     ])
     result = feedback.sender.update(feedback.record, feedback.snapshot, 100, feedback.capture)
     assert result['level'] == 'high'
-    assert feedback.keys == ['ctrl+1']
+    assert feedback.keys == ['shift+3']
 
 
 @pytest.mark.parametrize('detections', [
@@ -68,56 +68,63 @@ def test_non_box_or_below_threshold_detection_does_not_send(feedback, detections
 def test_dry_run_reports_key_without_claiming_it_was_sent(feedback):
     feedback.sender.actuator = DryRunActuator()
     result = feedback.sender.update(feedback.record, feedback.snapshot, 100, feedback.capture)
-    assert result['key'] == 'shift+1'
+    assert result['key'] == 'shift+2'
     assert not result['sent']
     assert result['actuation']['would_send']
 
 
-@pytest.mark.parametrize('name,modifier', [('1', None), ('shift+1', 'shift'), ('ctrl+1', 'ctrl')])
-def test_top_row_number_chords_press_modifiers_first_and_release_last(name, modifier):
+@pytest.mark.parametrize('score,key', [(.5, 'shift+1'), (.8, 'shift+2'), (.95, 'shift+3')])
+def test_confidence_category_selects_its_shift_number_chord(feedback, score, key):
+    feedback.capture.detections[0]['confidence'] = score
+    result = feedback.sender.update(feedback.record, feedback.snapshot, 100, feedback.capture)
+    assert result['key'] == key
+    assert feedback.keys == [key]
+
+
+@pytest.mark.parametrize('number', ['1', '2', '3'])
+@pytest.mark.parametrize('platform', ['win32', 'linux'])
+def test_top_row_number_chords_press_shift_first_and_release_last(number, platform):
     events = []
     keyboard = SimpleNamespace(press=lambda key: events.append(('press', key)),
                                release=lambda key: events.append(('release', key)))
     actuator = KeyboardActuator(tap_duration=0, keyboard=keyboard)
-    with patch('expert_scout.actuator.sys.platform', 'win32'):
-        assert actuator.tap_key(name)['sent']
-    digit = ('vk', 0x31)
-    expected = [('press', digit), ('release', digit)]
-    if modifier:
-        expected = [('press', modifier), *expected, ('release', modifier)]
-    assert events == expected
-    assert ('vk', 0x61) not in [key for _, key in events]
+    with patch('expert_scout.actuator.sys.platform', platform):
+        assert actuator.tap_key(f'shift+{number}')['sent']
+    digit = ('vk', ord(number)) if platform == 'win32' else number
+    assert events == [('press', 'shift'), ('press', digit), ('release', digit), ('release', 'shift')]
+    assert not any(key in [('vk', code) for code in (0x61, 0x62, 0x63)] for _, key in events)
 
 
-@pytest.mark.parametrize('name,modifier', [('shift+1', 'shift'), ('ctrl+1', 'ctrl')])
-def test_modifier_is_released_when_number_press_fails(name, modifier):
+@pytest.mark.parametrize('number', ['1', '2', '3'])
+def test_shift_is_released_when_number_press_fails(number):
     events = []
 
     def press(key):
         events.append(('press', key))
-        if key == ('vk', 0x31):
+        if key == ('vk', ord(number)):
             raise RuntimeError('input failed')
 
     keyboard = SimpleNamespace(press=press, release=lambda key: events.append(('release', key)))
     actuator = KeyboardActuator(tap_duration=0, keyboard=keyboard)
     with patch('expert_scout.actuator.sys.platform', 'win32'), pytest.raises(RuntimeError):
-        actuator.tap_key(name)
-    assert events[-2:] == [('release', ('vk', 0x31)), ('release', modifier)]
+        actuator.tap_key(f'shift+{number}')
+    assert events[-2:] == [('release', ('vk', ord(number))), ('release', 'shift')]
 
 
-def test_modifier_is_released_even_when_number_release_fails():
+@pytest.mark.parametrize('number', ['1', '2', '3'])
+def test_shift_is_released_even_when_number_release_fails(number):
     events = []
 
     def release(key):
         events.append(('release', key))
-        if key == ('vk', 0x31):
+        if key == ('vk', ord(number)):
             raise RuntimeError('release failed')
 
     keyboard = SimpleNamespace(press=lambda key: None, release=release)
     actuator = KeyboardActuator(tap_duration=0, keyboard=keyboard)
     with patch('expert_scout.actuator.sys.platform', 'win32'), pytest.raises(RuntimeError):
-        actuator.tap_key('ctrl+1')
-    assert events == [('release', ('vk', 0x31)), ('release', 'ctrl')]
+        actuator.tap_key(f'shift+{number}')
+    assert events == [('release', ('vk', ord(number))), ('release', 'shift')]
 
 
 @pytest.mark.parametrize('medium,high', [(.25, .82), (.82, .72), (.72, .72), (.72, 1.1), (float('nan'), .82)])

@@ -78,7 +78,7 @@ def main():
     print(f"Grid expert scout: participant {args.pid}, seed {seed}")
     print(f"Run outputs: {run_dir}")
     print(f"Simulator telemetry: {args.state_file or sim_dir / 'OutputData'} ({location_source})")
-    print("Confidence keys (top row): 1=low, Shift+1=medium, Ctrl+1=high.")
+    print("Confidence keys (top row): Shift+1=low, Shift+2=medium, Shift+3=high.")
     previous = None
     previous_wait = None
     try:

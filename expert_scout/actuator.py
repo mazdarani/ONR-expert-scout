@@ -99,12 +99,12 @@ class KeyboardActuator(BaseActuator):
 
     def tap_key(self, name):
         from pynput.keyboard import Key, KeyCode
-        modifiers = {"1": (), "shift+1": (Key.shift,), "ctrl+1": (Key.ctrl,)}[name]
-        # Windows VK_1 selects the top-row digit; VK_NUMPAD1 is 0x61.
-        digit = KeyCode.from_vk(0x31) if sys.platform == "win32" else KeyCode.from_char("1")
+        number = {"shift+1": "1", "shift+2": "2", "shift+3": "3"}[name]
+        # Windows virtual-key codes select top-row digits rather than numpad keys.
+        digit = KeyCode.from_vk(ord(number)) if sys.platform == "win32" else KeyCode.from_char(number)
         pressed = []
         try:
-            for key in (*modifiers, digit):
+            for key in (Key.shift, digit):
                 pressed.append(key)
                 self._keyboard.press(key)
             if self._tap_duration > 0:

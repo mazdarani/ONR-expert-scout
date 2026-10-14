@@ -1,7 +1,7 @@
 """Send a YOLO box detection's confidence category to the simulator."""
 import math
 
-CONFIDENCE_KEYS = {"low": "1", "medium": "shift+1", "high": "ctrl+1"}
+CONFIDENCE_KEYS = {"low": "shift+1", "medium": "shift+2", "high": "shift+3"}
 
 
 def confidence_level(score, config):
