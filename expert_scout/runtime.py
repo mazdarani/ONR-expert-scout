@@ -6,7 +6,7 @@ import secrets
 import time
 import uuid
 from .config import ROOT, load_config
-from .io import RunLog, TelemetryReader, atomic_json
+from .io import RunLog, StatusWriter, TelemetryReader, atomic_json
 from .maps import load_search_areas
 from .location import simulator_folder
 from .diagnostics import telemetry_wait_message
@@ -77,6 +77,7 @@ def main():
     run_dir.mkdir(parents=True)
     atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec, simulator_path=str(sim_dir), map_selection=args.map, simulator_location_source=location_source))
     log = RunLog(run_dir / "actions.jsonl")
+    status_writer = StatusWriter(run_dir / "status.json")
     print(f"Expert scout: participant {args.pid}, route={config.route_mode}, seed {seed}")
     print(f"Run outputs: {run_dir}")
     print(f"Simulator telemetry: {args.state_file or sim_dir / 'OutputData'} ({location_source})")
@@ -104,7 +105,7 @@ def main():
                       ("episode_id", "pid", "published_at", "phase", "event", "map_name", "map_epoch", "search_bounds",
                        "target_box_id", "target_detection", "collected_box_ids", "confirmed_box_ids", "confidence_feedback", "telemetry")}
             status["wait_reason"] = record.get("wait_reason")
-            atomic_json(run_dir / "status.json", status)
+            status_writer.write(status)
             if action.source == "telemetry_wait":
                 message = telemetry_wait_message(record, snapshot, telemetry)
                 if message != previous_wait:

@@ -271,6 +271,13 @@ Each launch creates `logs/expert/pid_<id>/<episode>/`:
 `confidence_feedback` records the YOLO score, category, key, sent status and skip
 reason in both action and status logs.
 
+On Windows, another reader or a sync process can temporarily prevent replacement
+of `status.json`. The writer retries short access locks, then leaves the previous
+snapshot intact and retries later with a terminal warning. Control and the
+required `actions.jsonl` log continue. Recovery is reported in the terminal.
+Failure to write the action log still stops the controller and releases its keys,
+so an experiment does not silently continue without its action record.
+
 | Symptom | Check |
 | --- | --- |
 | `telemetry_wait` | Read the accompanying message for the selected path and missing or stale data. Match participant IDs and enter a running scenario. |

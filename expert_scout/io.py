@@ -7,6 +7,19 @@ import tempfile
 import time
 
 
+def replace_with_retry(source, destination):
+    """Allow short-lived Windows sharing and access locks to clear."""
+    for attempt in range(4):
+        try:
+            os.replace(source, destination)
+            return
+        except OSError as error:
+            locked = isinstance(error, PermissionError) or getattr(error, "winerror", None) in (5, 32, 33)
+            if not locked or attempt == 3:
+                raise
+            time.sleep(0.01 * 2 ** attempt)
+
+
 def atomic_json(path, payload):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -16,10 +29,41 @@ def atomic_json(path, payload):
                                          prefix=path.name + ".", delete=False) as stream:
             temporary = stream.name
             json.dump(payload, stream, allow_nan=False)
-        os.replace(temporary, path)
+        replace_with_retry(temporary, path)
     finally:
-        if temporary and os.path.exists(temporary):
-            os.unlink(temporary)
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                # Replacement consumes the temp file; cleanup is otherwise best effort.
+                pass
+
+
+class StatusWriter:
+    """Best-effort live status; actions.jsonl remains the required experiment log."""
+    def __init__(self, path):
+        self.path = Path(path)
+        self.error = None
+        self.retry_at = 0.0
+
+    def write(self, payload):
+        now = time.monotonic()
+        if now < self.retry_at:
+            return False
+        try:
+            atomic_json(self.path, payload)
+        except OSError as error:
+            if self.error is None:
+                print(f"Status file could not be updated: {self.path}: {error}. "
+                      "The controller and actions.jsonl logging continue; status will be retried.", flush=True)
+            self.error = str(error)
+            self.retry_at = now + 1.0
+            return False
+        if self.error is not None:
+            print(f"Status file updates resumed: {self.path}", flush=True)
+        self.error = None
+        self.retry_at = 0.0
+        return True
 
 
 class TelemetryReader:
