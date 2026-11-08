@@ -1,11 +1,11 @@
 {
-  "source": "ONRScubaCFF reference positions in tests/fixtures/ONRScubaCFF_maps.json",
-  "start_assumed": {
+  "source": "ONRScubaConfirmationBox (1).zip; map prefabs in sharedassets0.assets",
+  "scene_start": {
     "x": 0.0,
-    "y": -23.36,
+    "y": -23.360000610351562,
     "z": 0.0
   },
-  "note": "Center-to-center nearest-neighbor preview. Live route uses current pose after each collection. Not a verified layout for another build.",
+  "note": "Positions and scene start verified against supplied build. Center-to-center preview; live selection uses current AUV pose.",
   "maps": {
     "training": {
       "box_order": [

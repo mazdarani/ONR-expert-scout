@@ -14,7 +14,7 @@ from expert_scout.routing import nearest_box, box_order
 from expert_scout.state import AtomicState
 
 ROOT = Path(__file__).resolve().parents[1]
-LAYOUTS = json.loads((ROOT / 'tests/fixtures/ONRScubaCFF_maps.json').read_text())
+LAYOUTS = json.loads((ROOT / 'tests/fixtures/ONRScubaConfirmationBox_maps.json').read_text())
 
 
 def make_run(boxes):

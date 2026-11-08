@@ -4,7 +4,7 @@
   "detector_confidence": 0.25,
   "collection_distance": 1.5,
   "collection_dwell_sec": 10,
-  "simulator_directory": "ONR_Scuba_Pilot",
+  "simulator_directory": "simulator",
   "diver_max_separation": 5.0,
   "diver_resume_separation": 3.0,
   "medium_confidence": 0.72,

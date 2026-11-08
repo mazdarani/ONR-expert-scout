@@ -1,4 +1,4 @@
-"""Collection identity for the ONRScubaCFF telemetry format."""
+"""Collection identity for the ONR simulator telemetry format."""
 import math
 
 

@@ -19,3 +19,4 @@ models/
 logs/
 .pytest_cache/
 ONRScubaCFF*/
+simulator/

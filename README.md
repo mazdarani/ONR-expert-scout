@@ -28,7 +28,7 @@ ONR-expert-scout/
 ```
 
 The Unity build, virtual environment and run logs are local files excluded from
-Git. The default simulator location is `ONR_Scuba_Pilot/` in the repository root;
+Git. The default simulator location is `simulator/` in the repository root;
 a build located elsewhere is also supported.
 
 ## Environment setup
@@ -56,13 +56,15 @@ activate the same environment with `.\.venv\Scripts\Activate.ps1`.
 
 ### Simulator files
 
-Extract the complete Unity build, preserving all files supplied with the
-executable. A typical local installation is:
+Extract `ONRScubaConfirmationBox (1).zip`, rename the extracted
+`ONRScubaConfirmationBox` folder to **`simulator`**, and place it in the repository
+root. Keep the executable, `ONR Scuba_Data` and all other supplied files together;
+only the outer folder is renamed. The resulting installation is:
 
 ```text
 ONR-expert-scout/
 ├── .venv/
-├── ONR_Scuba_Pilot/
+├── simulator/
 │   ├── ONR Scuba.exe
 │   ├── ONR Scuba_Data/
 │   ├── UnityPlayer.dll
@@ -78,7 +80,7 @@ executable. If no running build is found, it uses the directory configured in
 To select a particular build, pass the folder containing its executable:
 
 ```bat
-python main.py --role scout-expert --pid 0 --sim-dir "C:\Simulators\ONR_Scuba_Pilot"
+python main.py --role scout-expert --pid 0 --sim-dir "C:\Simulators\simulator"
 ```
 
 ## Run an experiment
@@ -125,7 +127,7 @@ AUV through `I/K`, `J/L`, `U/O`, `N/M` and the light-flash key `P`.
 | --- | --- |
 | `--pid 0` | Participant ID; must match Unity. Required. |
 | `--monitor-index 1` | Capture another AUV display; default is `2`. |
-| `--sim-dir "C:\Simulators\ONR_Scuba_Pilot"` | Select the simulator directory explicitly. |
+| `--sim-dir "C:\Simulators\simulator"` | Select the simulator directory explicitly. |
 | `--state-file "C:\path\ParticipantData_PID_0.json"` | Read one specified telemetry file. |
 | `--seed 1234` | Use a fixed grid randomization seed in optional grid mode. |
 | `--duration-sec 600` | Stop after ten minutes; default is unlimited. |
@@ -276,9 +278,14 @@ The initial commit preserves the original ONR controller at
 ![Nearest-box route previews](figures/scout_routes.png)
 
 The [PDF](figures/scout_routes.pdf) and [route data](figures/scout_routes.json)
-show training, map1 and map2 using the reference ONRScubaCFF positions in the
-test fixtures and an assumed start at `(0, -23.36, 0)`. These are visit-order
-previews, not verified layouts for a different simulator build. The controller
-uses live telemetry rather than these fixtures. The actual order may change
-with the starting pose, collection position or layout; arrows do not represent
-an obstacle-free path.
+show training, map1 and map2 from the supplied ONRScubaConfirmationBox build.
+The box positions match the previous reference layout: two training boxes and
+five boxes in each main map. The scene's AUV start is `(0, -23.36, 0)`.
+These are nearest-neighbor visit-order previews; the actual route is selected
+from live telemetry after each collection. Arrows connect targets and do not
+represent obstacle-avoidance trajectories.
+
+The compatibility record in `configs/simulator.json` includes the inspected
+assembly and map-asset hashes. Inspection confirms the top-row confidence
+shortcuts `Shift+1`, `Shift+2` and `Shift+3`, and the collection telemetry used
+by this controller. Live movement and feedback still require a simulator run.

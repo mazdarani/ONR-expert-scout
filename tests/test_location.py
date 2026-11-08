@@ -135,3 +135,12 @@ def test_missing_pose_is_distinct_from_missing_file():
     message=telemetry_wait_message({'wait_reason':'missing_auv_pose'},{'curState':'searching'},
                                    {'status':'ready','path':'participant.json'})
     assert 'position/rotation' in message
+
+
+def test_default_simulator_directory_matches_runtime_config():
+    from expert_scout.config import ROOT, load_config
+    assert Config().simulator_directory == 'simulator'
+    config = load_config(ROOT / 'configs/expert.json')
+    assert config.path('simulator_directory') == ROOT / 'simulator'
+    with patch('expert_scout.location.running_simulator_folders', return_value=[]):
+        assert simulator_folder(config.path('simulator_directory')) == (ROOT / 'simulator', 'config')

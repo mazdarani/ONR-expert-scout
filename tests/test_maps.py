@@ -16,7 +16,7 @@ from expert_scout.state import AtomicState
 from expert_scout.vision import Capture
 
 ROOT = Path(__file__).resolve().parents[1]
-POSITIONS = json.loads((Path(__file__).parent / 'fixtures/ONRScubaCFF_maps.json').read_text())
+POSITIONS = json.loads((Path(__file__).parent / 'fixtures/ONRScubaConfirmationBox_maps.json').read_text())
 CASES = [(name, box) for name, boxes in POSITIONS.items() for box in boxes]
 
 

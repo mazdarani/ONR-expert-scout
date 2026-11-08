@@ -1,6 +1,6 @@
 {
-  "build": "ONR_Scuba_Pilot",
-  "assembly_sha256": "bde1570faeecbdaef0527974e27aa4f4b3cfdc33086e05ceb68c7aaeb3e32a49",
+  "build": "ONRScubaConfirmationBox",
+  "assembly_sha256": "69efd8f44df754d252ddd72f656bf3fd255c951ef5bb14935e7e03c01b31059a",
   "telemetry_directory": "OutputData",
   "file_pattern": "ParticipantData_PID_<id>*.json",
   "collection_fields": [
@@ -14,5 +14,17 @@
     "1": "map1",
     "2": "map2"
   },
-  "coordinate_space": "Unity world coordinates; Y is vertical; yaw is degrees"
+  "coordinate_space": "Unity world coordinates; Y is vertical; yaw is degrees",
+  "default_directory": "simulator",
+  "auv_start_position": {
+    "x": 0.0,
+    "y": -23.360000610351562,
+    "z": 0.0
+  },
+  "map_asset_sha256": "08f5d295d6b523c55442eaff4aeb7fb5e9cd3dd9aa22fd6ffb2124da0f63dc15",
+  "confidence_keys": {
+    "low": "shift+1",
+    "medium": "shift+2",
+    "high": "shift+3"
+  }
 }

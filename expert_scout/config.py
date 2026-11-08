@@ -28,7 +28,7 @@ class Config:
     diver_resume_separation: float = 3.0
     map_profiles_path: str = "configs/maps.json"
     # The simulator bundled with this repository writes OutputData here.
-    simulator_directory: str = "ONR_Scuba_Pilot"
+    simulator_directory: str = "simulator"
     output_directory: str = "logs/expert"
 
     def validate(self):
