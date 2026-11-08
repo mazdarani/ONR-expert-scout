@@ -1,9 +1,9 @@
 # ONR Expert Scout
 
-A YOLO-assisted AUV controller for the ONR Unity simulator. The AUV searches a
-randomized grid, switches to a coordinate-based expert approach when YOLO detects
-a box, and waits for the human-controlled diver to collect it. YOLO confidence
-is reported to the simulator through three keyboard shortcuts.
+An AUV scout controller for the ONR Unity simulator. It visits the nearest
+unopened box using live simulator coordinates, waits for the human-controlled
+diver to open it, then selects the next nearest unopened box. YOLO confidence
+is reported independently through three keyboard shortcuts.
 
 ```bat
 python main.py --role scout-expert --pid 0
@@ -127,7 +127,7 @@ AUV through `I/K`, `J/L`, `U/O`, `N/M` and the light-flash key `P`.
 | `--monitor-index 1` | Capture another AUV display; default is `2`. |
 | `--sim-dir "C:\Simulators\ONR_Scuba_Pilot"` | Select the simulator directory explicitly. |
 | `--state-file "C:\path\ParticipantData_PID_0.json"` | Read one specified telemetry file. |
-| `--seed 1234` | Use a fixed grid randomization seed. |
+| `--seed 1234` | Use a fixed grid randomization seed in optional grid mode. |
 | `--duration-sec 600` | Stop after ten minutes; default is unlimited. |
 | `--dry-run` | Log requested actions without sending keyboard input. |
 | `--map map1` | Override automatic map selection with `training`, `map1` or `map2`. |
@@ -138,20 +138,36 @@ Relative paths inside the configuration are resolved from the repository root.
 
 ## Controller behavior
 
-The grid route uses 2.5 m waypoint jitter and 1.5 m depth jitter. Search uses the
-configured map boundaries; live box coordinates are used only after a YOLO
-detection has been matched to a simulator box. The expert then approaches that
-box and stops within the configured collection distance of **1.5 m**.
+The default `route_mode` in `configs/expert.json` is `nearest`. Selection uses
+3D distance from the current AUV position to every unopened box in `boxTimeList`.
+The closest box is selected first, with box ID breaking equal-distance ties.
+That target remains fixed during approach and waiting; a different camera
+observation does not redirect the AUV. After collection and the dwell, the next
+choice uses the AUV's actual position. This is a nearest-neighbor route, rather
+than a globally shortest tour. YOLO is used for confidence feedback and is not
+required to trigger travel.
 
-The diver collects the box with `F`. Confirmed collection triggers three light
-flashes and a **10-second dwell**, after which the AUV resumes grid search.
-Collected IDs are excluded from subsequent approaches for that simulator
-session. Approaching a box does not mark it collected.
+During travel, the scout **stops beyond 5 m from the diver** and resumes once the
+diver is **within 3 m**. Missing diver position also stops travel. This applies
+to box approaches as well as the optional grid search. The AUV turns toward its
+target before moving forward, while retaining the existing obstacle rules.
 
-The current `configs/expert.json` pauses grid movement when the diver is more
-than **100 m** away and resumes at or below 100 m. These distances, collection
-settings, detector threshold and monitor selection can be adjusted in that file.
-This mode uses the expert navigator and does not load OpenVLA.
+At **1.5 m from its target**, the AUV releases movement and waits for that specific
+box to be opened. It stays there if the diver swims away, the camera loses the
+box, or the box temporarily disappears from telemetry. It does not follow the
+diver away from an unopened target. Confirmed collection triggers three light
+flashes and a **10-second dwell**, followed by the next nearest unopened box.
+If the diver is still too far away, travel remains paused. When all boxes have
+been opened, the AUV stops.
+
+Only confirmed opened IDs are excluded from later approaches. A collection count
+increase without an identifiable box holds movement until identity is resolved.
+The controller never presses the diver's collection key.
+
+Set `route_mode` to `grid` to use the earlier randomized grid with YOLO-triggered
+approach. Its waypoint jitter is 2.5 m and depth jitter is 1.5 m. Both modes use
+the same diver-distance limits and collection wait. Distances and dwell settings
+are configurable in `configs/expert.json`. This version does not load OpenVLA.
 
 ## Confidence feedback
 
@@ -254,3 +270,15 @@ The initial commit preserves the original ONR controller at
 `397c50b1dbf99a28ef55891e4c586ad91e07cebd`. The inherited `modules/` and
 `requirements.txt` remain unchanged. `expert_scout/` implements the added mode;
 `main.py` selects it while retaining the original `scout` and `companion` roles.
+
+## Route preview
+
+![Nearest-box route previews](figures/scout_routes.png)
+
+The [PDF](figures/scout_routes.pdf) and [route data](figures/scout_routes.json)
+show training, map1 and map2 using the reference ONRScubaCFF positions in the
+test fixtures and an assumed start at `(0, -23.36, 0)`. These are visit-order
+previews, not verified layouts for a different simulator build. The controller
+uses live telemetry rather than these fixtures. The actual order may change
+with the starting pose, collection position or layout; arrows do not represent
+an obstacle-free path.

@@ -53,7 +53,7 @@ def test_actual_new_box_positions_match_yolo_from_world_yaw(name,box):
     snapshot={'latestPositions':{'auvPosition':{'x':0,'y':-23.36,'z':0},'auvRotation':{'y':yaw}},
               'boxTimeList':[{'boxID':b['id'],'boxPosition':b['position']} for b in POSITIONS[name]]}
     detection={'xywh':[500,300,100,100],'confidence':.9,'class_name':'box'}
-    matches=match_detections(snapshot,[detection],1000,Config())
+    matches=match_detections(snapshot,[detection],1000,Config(route_mode="grid"))
     assert matches[0]['box_id']==box['id']
 
 
@@ -61,7 +61,7 @@ def test_actual_new_box_positions_match_yolo_from_world_yaw(name,box):
 def run():
     state=AtomicState()
     collected=[]
-    config=Config()
+    config=Config(route_mode="grid")
     grid=GridSearchNavigator(state,'scout',collected,lambda role:None,randomize_route=True,
                              waypoint_jitter=2.5,depth_jitter=1.5,seed=123)
     approach=OracleBoxNavigator(state,'scout',collected,lambda role:None,lambda box_id:None,

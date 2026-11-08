@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @dataclass(frozen=True)
 class Config:
+    route_mode: str = "nearest"
     detector_path: str = "checkpoints/yolo_box_detector_cvat_yolov8n_e20_best.pt"
     monitor_index: int = 2
     detector_confidence: float = 0.25
@@ -31,6 +32,8 @@ class Config:
     output_directory: str = "logs/expert"
 
     def validate(self):
+        if self.route_mode not in ("nearest", "grid"):
+            raise ValueError("route_mode must be nearest or grid")
         for name in ("detector_path", "output_directory", "simulator_directory", "map_profiles_path"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name).strip():
                 raise ValueError(f"{name} must be a nonempty string")

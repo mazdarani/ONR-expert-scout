@@ -1,15 +1,10 @@
-"""Ground-truth teacher navigator for collecting expert demonstrations."""
+"""Approach a selected box using live simulator coordinates."""
 
 from .collector import CollectorNavigator
 
 
 class OracleBoxNavigator(CollectorNavigator):
-    """Approach the nearest uncollected box using simulator coordinates.
-
-    This navigator is intentionally restricted to demonstration collection.
-    It uses privileged ``boxTimeList`` positions as a teacher while the logged
-    camera frames remain the inputs intended for VLA fine-tuning.
-    """
+    """Navigate to an explicit target without marking it collected on arrival."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -75,7 +75,7 @@ def test_external_simulator_telemetry_allows_grid_motion(tmp_path):
     running=tmp_path/'separate build'
     output=running/'OutputData';output.mkdir(parents=True)
     value={'curState':'searching','mapType':1,'totalTime':10,'boxesFound':0,'boxTimeList':[],
-           'latestPositions':{'auvPosition':{'x':0,'y':-23,'z':0},'auvRotation':{'y':0}}}
+           'latestPositions':{'auvPosition':{'x':0,'y':-23,'z':0},'auvRotation':{'y':0},'diverPosition':{'x':0,'y':-23,'z':0}}}
     (output/'ParticipantData_PID_0.json').write_text(json.dumps(value))
     with patch('expert_scout.location.running_simulator_folders',return_value=[running]):
         directory,_=simulator_folder(tmp_path/'repo'/'ONRScubaCFF')
@@ -85,7 +85,7 @@ def test_external_simulator_telemetry_allows_grid_motion(tmp_path):
                          mark_opened_area=lambda position:None)
     approach=SimpleNamespace(clear_target_box=lambda:None,_clear_motion_keys=lambda:None)
     areas=load_search_areas(Path(__file__).resolve().parents[1]/'configs/maps.json')
-    controller=ExpertController(Config(),grid,approach,[],areas)
+    controller=ExpertController(Config(route_mode="grid"),grid,approach,[],areas)
     record=controller.step(snapshot,None)
     assert record['action'].forward
     assert reader.diagnostics()['path']==str(output/'ParticipantData_PID_0.json')

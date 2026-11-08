@@ -1,10 +1,10 @@
-"""Grid search, YOLO-triggered expert approach, and diver collection."""
-import math
+"""Nearest-box scouting with diver escort and confirmed collection."""
 import time
 from .action import Action
 from .matching import match_detections
 from .simulator import CollectionTracker
 from .maps import map_name
+from .routing import nearest_box, valid_position, distance
 
 
 class ExpertController:
@@ -70,23 +70,28 @@ class ExpertController:
             self.flashes_left, self.next_flash_at = 3, now
 
     def _finish(self):
-        self.phase, self.event = "searching", "grid_resumed"
+        self.phase, self.event = "searching", "route_resumed"
         self.target_id = self.target_detection = None
         self.approach.clear_target_box()
         self.streak = 0
 
-    def _grid_action(self, snapshot):
+    def _diver_wait(self, snapshot):
         pose = snapshot.get("latestPositions", {})
         auv, diver = pose.get("auvPosition"), pose.get("diverPosition")
-        if auv and diver:
-            distance = math.sqrt(sum((auv[a] - diver[a]) ** 2 for a in ("x", "y", "z")))
-            if distance > self.config.diver_max_separation:
-                self.diver_paused = True
-            elif distance <= self.config.diver_resume_separation:
-                self.diver_paused = False
+        if not valid_position(auv) or not valid_position(diver):
+            return Action.none(source="waiting_for_diver_pose")
+        separation = distance(auv, diver)
+        if separation > self.config.diver_max_separation:
+            self.diver_paused = True
+        elif separation <= self.config.diver_resume_separation:
+            self.diver_paused = False
         if self.diver_paused:
             return Action.none(source="waiting_for_diver_to_follow")
-        return self.grid.action()
+        return None
+
+    def _grid_action(self, snapshot):
+        wait = self._diver_wait(snapshot)
+        return wait if wait is not None else self.grid.action()
 
     def step(self, snapshot, capture):
         now = time.time()
@@ -95,7 +100,7 @@ class ExpertController:
         state_age = now - snapshot.get("_sourceMtime", 0)
         if snapshot.get("curState") in ("titleScreen", "endScreen", "endProgram", "outOfOxygen") and 0 <= state_age <= self.config.max_sensor_age_sec:
             self.new_session = True
-        if (snapshot.get("curState") != "searching" or not pose.get("auvPosition") or not pose.get("auvRotation")
+        if (snapshot.get("curState") != "searching" or not valid_position(pose.get("auvPosition")) or not pose.get("auvRotation")
                 or not 0 <= state_age <= self.config.max_sensor_age_sec):
             if snapshot.get("curState") != "searching" and 0 <= state_age <= self.config.max_sensor_age_sec:
                 self.collection_tracker.update(snapshot)
@@ -103,7 +108,7 @@ class ExpertController:
                 reason = "missing_game_state"
             elif snapshot.get("curState") != "searching":
                 reason = "game_not_searching"
-            elif not pose.get("auvPosition") or not pose.get("auvRotation"):
+            elif not valid_position(pose.get("auvPosition")) or not pose.get("auvRotation"):
                 reason = "missing_auv_pose"
             else:
                 reason = "stale_telemetry"
@@ -121,6 +126,9 @@ class ExpertController:
                 self._select_map(name)
             self.last_sim_time = sim_time if isinstance(sim_time, (float, int)) else None
         self._collect(snapshot, now)
+        count = snapshot.get("boxesFound")
+        if isinstance(count, int) and count > len(self.collected):
+            return self._record(Action.none(source="waiting_for_collection_identity"))
         matches = []
         if (capture is not None and 0 <= now - capture.timestamp <= self.config.max_sensor_age_sec
                 and (self.map_changed_at is None or capture.timestamp >= self.map_changed_at)):
@@ -132,6 +140,17 @@ class ExpertController:
             self.target_detection = target_matches[0]
         if self.phase == "collection_dwell" and now >= self.dwell_until:
             self._finish()
+        if self.phase in ("searching", "complete") and self.config.route_mode == "nearest":
+            candidate = nearest_box(pose.get("auvPosition"), snapshot.get("boxTimeList", []), self.collected)
+            if candidate is None:
+                boxes = snapshot.get("boxTimeList", [])
+                complete = boxes and all(b.get("boxID") in self.collected for b in boxes)
+                phase = "complete" if complete else "waiting_for_boxes"
+                return self._record(Action.none(source=phase), phase=phase)
+            self.target_id = candidate["boxID"]
+            self.target_detection = next((m for m in matches if m["box_id"] == self.target_id), None)
+            self.approach.set_target_box(self.target_id)
+            self.phase, self.event = "approaching", "nearest_box_selected"
         if self.phase == "searching":
             known = any(m["box_id"] in self.collected for m in matches)
             candidate = matches[0] if matches and not known else None
@@ -144,11 +163,15 @@ class ExpertController:
                 self.approach.set_target_box(self.target_id)
                 self.phase, self.event = "approaching", "expert_started"
         if self.phase == "approaching":
-            if not any(b.get("boxID") == self.target_id for b in snapshot.get("boxTimeList", [])):
-                self._finish()
-                action = self._grid_action(snapshot)
+            target = next((b for b in snapshot.get("boxTimeList", []) if b.get("boxID") == self.target_id), None)
+            if target is None or not valid_position(target.get("boxPosition")):
+                action = Action.none(source="waiting_for_target_telemetry")
+            elif distance(pose["auvPosition"], target["boxPosition"]) <= self.config.collection_distance:
+                self.reached(self.target_id)
+                action = Action.none(source="waiting_for_diver")
             else:
-                action = self.approach.action()
+                wait = self._diver_wait(snapshot)
+                action = wait if wait is not None else self.approach.action()
                 if self.event == "box_reached":
                     action = Action.none(source="waiting_for_diver")
         elif self.phase in ("waiting_for_diver", "collection_dwell"):
@@ -162,6 +185,6 @@ class ExpertController:
         return self._record(action)
 
     def _record(self, action, phase=None):
-        return {"phase": phase or self.phase, "map_name": self.current_map, "map_epoch": self.map_epoch,
+        return {"phase": phase or self.phase, "route_mode": self.config.route_mode, "map_name": self.current_map, "map_epoch": self.map_epoch,
                 "search_bounds": self.search_bounds, "event": self.event, "target_box_id": self.target_id,
                 "target_detection": self.target_detection, "collected_box_ids": list(self.collected), "action": action}

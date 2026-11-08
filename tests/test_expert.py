@@ -19,7 +19,7 @@ from expert_scout.vision import Capture
 @pytest.fixture
 def setup():
     state = AtomicState()
-    config = Config(diver_max_separation=100, diver_resume_separation=100)
+    config = Config(route_mode="grid", diver_max_separation=100, diver_resume_separation=100)
     snapshot = {'curState':'searching', '_sourceMtime':100, 'boxesFound':0,
                 'latestPositions': {'auvPosition': {'x':0,'y':0,'z':0}, 'auvRotation': {'x':0,'y':0,'z':0},
                                     'diverPosition': {'x':0,'y':0,'z':0}},

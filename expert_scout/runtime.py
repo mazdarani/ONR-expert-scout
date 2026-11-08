@@ -1,4 +1,4 @@
-"""Run the grid expert scout with a human-controlled diver."""
+"""Run the expert scout with a human-controlled diver."""
 import argparse
 from dataclasses import asdict
 import math
@@ -20,7 +20,7 @@ def duration(value):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="ONR grid expert scout")
+    parser = argparse.ArgumentParser(description="ONR expert scout")
     parser.add_argument("--role", choices=["scout-expert"], default="scout-expert")
     parser.add_argument("--grid-search-expert", action="store_true", help="Select the grid expert scout")
     parser.add_argument("--pid", required=True, type=int)
@@ -75,7 +75,7 @@ def main():
     run_dir.mkdir(parents=True)
     atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec, simulator_path=str(sim_dir), map_selection=args.map, simulator_location_source=location_source))
     log = RunLog(run_dir / "actions.jsonl")
-    print(f"Grid expert scout: participant {args.pid}, seed {seed}")
+    print(f"Expert scout: participant {args.pid}, route={config.route_mode}, seed {seed}")
     print(f"Run outputs: {run_dir}")
     print(f"Simulator telemetry: {args.state_file or sim_dir / 'OutputData'} ({location_source})")
     print("Confidence keys (top row): Shift+1=low, Shift+2=medium, Shift+3=high.")

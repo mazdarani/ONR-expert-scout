@@ -119,16 +119,9 @@ class CollectorNavigator(Navigator):
 
         yaw_left = yaw_error < -self._yaw_threshold
         yaw_right = yaw_error > self._yaw_threshold
-        up = box_dy > 0.5
-        down = box_dy < -0.5
+        up = box_dy > 0.2
+        down = box_dy < -0.2
 
-        cone_max_dist = 30.0
-        cone_min_dist = self._collection_distance
-        denominator = max(0.001, cone_max_dist - cone_min_dist)
-        cone_ratio = max(0.0, min(1.0, (horizontal_distance - cone_min_dist) / denominator))
-        max_cone_angle = math.pi / 2
-        cone_threshold = self._yaw_threshold + (max_cone_angle - self._yaw_threshold) * cone_ratio
-        in_cone = abs(yaw_error) < cone_threshold
-
-        forward = horizontal_distance > self._collection_distance and in_cone
+        # Turn toward the target before translating; continue closing diagonal gaps.
+        forward = horizontal_distance > min(0.2, self._collection_distance / 2) and abs(yaw_error) <= self._yaw_threshold
         self._apply_motion(up, down, False, False, forward, False, yaw_left, yaw_right)
