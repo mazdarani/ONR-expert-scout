@@ -102,7 +102,7 @@ def main():
             log.write(record)
             status = {k: record[k] for k in
                       ("episode_id", "pid", "published_at", "phase", "event", "map_name", "map_epoch", "search_bounds",
-                       "target_box_id", "target_detection", "confidence_feedback", "telemetry")}
+                       "target_box_id", "target_detection", "collected_box_ids", "confirmed_box_ids", "confidence_feedback", "telemetry")}
             status["wait_reason"] = record.get("wait_reason")
             atomic_json(run_dir / "status.json", status)
             if action.source == "telemetry_wait":
@@ -117,6 +117,8 @@ def main():
             mode = (record["phase"], action.source)
             if mode != previous or record["event"]:
                 print(f"Expert: {record['phase']}, box={record['target_box_id']}, controller={action.source}")
+                if action.source == "waiting_for_collection_identity":
+                    print("Waiting for Unity to identify opened boxes; movement and confidence keys are paused.", flush=True)
                 previous = mode
             time.sleep(0.05)
     except KeyboardInterrupt:

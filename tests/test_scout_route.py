@@ -1,4 +1,5 @@
 import json
+import copy
 import math
 from pathlib import Path
 from unittest.mock import patch
@@ -95,10 +96,10 @@ def test_lost_target_does_not_move_to_a_different_box():
     assert controller.target_id == 2
 
 
-def test_count_without_f_does_not_change_original_collection_inference():
+def test_count_without_identity_holds_instead_of_visiting_a_possibly_opened_box():
     controller, snapshot, step = make_run(boxes())
     snapshot['boxesFound'] = 1
-    assert step()['target_box_id'] == 2
+    assert step()['action'].source == 'waiting_for_collection_identity'
     assert controller.collected == []
 
 
@@ -112,7 +113,8 @@ def test_tie_break_and_invalid_coordinates():
 
 
 @pytest.mark.parametrize('layout', LAYOUTS)
-def test_full_route_with_real_navigator_handles_each_diver_interaction(layout):
+@pytest.mark.parametrize('questionnaire', [False, True])
+def test_full_route_with_real_navigator_handles_each_diver_interaction(layout, questionnaire):
     targets = [{'boxID': b['id'], 'boxPosition': b['position']} for b in LAYOUTS[layout]]
     controller, snapshot, step = make_run(targets)
     pose = snapshot['latestPositions']
@@ -130,9 +132,21 @@ def test_full_route_with_real_navigator_handles_each_diver_interaction(layout):
             assert action.yaw_right and action.lights
             # No timeout or loss of YOLO may release the box wait.
             assert step(now + 300)['action'].yaw_right
+            now += 300
             visited.append(target)
-            step(now, press=True)
             snapshot['boxesFound'] += 1
+            if questionnaire:
+                event = dict(copy.deepcopy(snapshot), _interaction_time=now)
+                snapshot['curState'] = 'sagat'
+                snapshot['_sourceMtime'] = now
+                with patch('time.time', return_value=now):
+                    assert controller.step(snapshot, None, [event])['action'].is_empty()
+                assert step(now + 300)['action'].is_empty()
+                assert target in controller.collected
+                snapshot['curState'] = 'searching'
+                now += 300
+            else:
+                step(now, press=True)
         else:
             yaw = pose['auvRotation']['y']
             yaw += (int(action.yaw_right) - int(action.yaw_left)) * 5

@@ -4,7 +4,8 @@ from .action import Action
 from .matching import match_detections
 from .interaction import collection_from_interaction
 from .maps import map_name
-from .routing import nearest_box, valid_position, distance
+from .routing import nearest_box, valid_position, valid_rotation, distance
+from .opened import OpenedBoxes
 
 
 class ExpertController:
@@ -29,6 +30,9 @@ class ExpertController:
         self.candidate_id = None
         self.last_frame = None
         self.diver_paused = False
+        self.opened = OpenedBoxes()
+        self.was_active = False
+        self.camera_not_before = None
 
     def _select_map(self, name):
         self._reset_control()
@@ -51,10 +55,10 @@ class ExpertController:
 
     def _collect(self, interactions, now):
         for snapshot in interactions:
-            age = now - snapshot.get("_sourceMtime", 0)
             pressed_at = snapshot.get("_interaction_time", 0)
+            age = pressed_at - snapshot.get("_sourceMtime", 0)
             if (snapshot.get("curState") != "searching" or not 0 <= age <= self.config.max_sensor_age_sec
-                    or not 0 <= now - pressed_at <= self.config.max_sensor_age_sec
+                    or pressed_at > now
                     or (self.map_changed_at is not None and pressed_at < self.map_changed_at)):
                 continue
             if self.current_map is not None and map_name(snapshot, self.map_override) != self.current_map:
@@ -105,37 +109,61 @@ class ExpertController:
     def step(self, snapshot, capture, interactions=()):
         now = time.time()
         self.event = None
-        pose = snapshot.get("latestPositions", {})
+        pose = snapshot.get("latestPositions") or {}
         state_age = now - snapshot.get("_sourceMtime", 0)
-        if snapshot.get("curState") in ("titleScreen", "endScreen", "endProgram", "outOfOxygen") and 0 <= state_age <= self.config.max_sensor_age_sec:
+        fresh = 0 <= state_age <= self.config.max_sensor_age_sec
+        game_state = snapshot.get("curState")
+        if game_state in ("titleScreen", "endScreen", "endProgram", "outOfOxygen") and fresh:
+            if not self.new_session:
+                self._collect(interactions, now)
             self.new_session = True
-        if (snapshot.get("curState") != "searching" or not valid_position(pose.get("auvPosition")) or not pose.get("auvRotation")
-                or not 0 <= state_age <= self.config.max_sensor_age_sec):
-            if not snapshot.get("curState"):
+        selected_map = map_name(snapshot, self.map_override) if self.search_areas is not None else None
+        if fresh and game_state == "searching" and self.search_areas is not None and selected_map is not None:
+            sim_time = snapshot.get("totalTime")
+            restarted = (isinstance(sim_time, (float, int)) and self.last_sim_time is not None
+                         and sim_time < self.last_sim_time)
+            if selected_map != self.current_map or restarted or self.new_session:
+                self._select_map(selected_map)
+            self.last_sim_time = sim_time if isinstance(sim_time, (float, int)) else None
+        if (not self.new_session and (self.search_areas is None or selected_map == self.current_map)):
+            # An F event from searching must survive the next frame entering SAGAT.
+            self._collect(interactions, now)
+            if fresh:
+                for box_id in sorted(self.opened.update(snapshot)):
+                    if box_id not in self.collected:
+                        self.collected.append(box_id)
+                        box = next((b for b in snapshot.get("boxTimeList", []) if b.get("boxID") == box_id), None)
+                        if box and valid_position(box.get("boxPosition")):
+                            self.grid.mark_opened_area(box["boxPosition"])
+                        if box_id == self.target_id:
+                            self._finish()
+                        self.event = "opened_box_confirmed"
+        if (game_state != "searching" or not valid_position(pose.get("auvPosition"))
+                or not valid_rotation(pose.get("auvRotation")) or not fresh):
+            self.was_active = False
+            if not game_state:
                 reason = "missing_game_state"
-            elif snapshot.get("curState") != "searching":
+            elif game_state != "searching":
                 reason = "game_not_searching"
-            elif not valid_position(pose.get("auvPosition")) or not pose.get("auvRotation"):
+            elif not valid_position(pose.get("auvPosition")) or not valid_rotation(pose.get("auvRotation")):
                 reason = "missing_auv_pose"
             else:
                 reason = "stale_telemetry"
             record = self._record(Action.none(source="telemetry_wait"))
             record["wait_reason"] = reason
             return record
-        if self.search_areas is not None:
-            name = map_name(snapshot, self.map_override)
-            if name is None:
-                return self._record(Action.none(source="waiting_for_map"), phase="waiting_for_map")
-            sim_time = snapshot.get("totalTime")
-            restarted = (isinstance(sim_time, (float, int)) and self.last_sim_time is not None
-                         and sim_time < self.last_sim_time)
-            if name != self.current_map or restarted or self.new_session:
-                self._select_map(name)
-            self.last_sim_time = sim_time if isinstance(sim_time, (float, int)) else None
-        self._collect(interactions, now)
+        if not self.was_active:
+            self.camera_not_before = now
+        self.was_active = True
+        if self.search_areas is not None and selected_map is None:
+            return self._record(Action.none(source="waiting_for_map"), phase="waiting_for_map")
+        count = snapshot.get("boxesFound")
+        if isinstance(count, int) and count > len(self.collected):
+            return self._record(Action.none(source="waiting_for_collection_identity"))
         matches = []
         if (capture is not None and 0 <= now - capture.timestamp <= self.config.max_sensor_age_sec
-                and (self.map_changed_at is None or capture.timestamp >= self.map_changed_at)):
+                and (self.map_changed_at is None or capture.timestamp >= self.map_changed_at)
+                and capture.timestamp >= self.camera_not_before):
             matches = match_detections(snapshot, capture.detections, capture.width, self.config)
             for match in matches:
                 match["timestamp"] = capture.timestamp
@@ -154,8 +182,9 @@ class ExpertController:
             self.approach.set_target_box(self.target_id)
             self.phase, self.event = "approaching", "nearest_box_selected"
         if self.phase == "searching":
-            known = any(m["box_id"] in self.collected for m in matches)
-            candidate = matches[0] if matches and not known else None
+            eligible = [m for m in matches if m["box_id"] not in self.collected
+                        and not set(m.get("candidate_box_ids", [])).intersection(self.collected)]
+            candidate = eligible[0] if eligible else None
             if capture is not None and capture.timestamp != self.last_frame:
                 box_id = candidate["box_id"] if candidate else None
                 self.streak = self.streak + 1 if box_id is not None and box_id == self.candidate_id else int(box_id is not None)
@@ -190,4 +219,5 @@ class ExpertController:
     def _record(self, action, phase=None):
         return {"phase": phase or self.phase, "route_mode": self.config.route_mode, "map_name": self.current_map, "map_epoch": self.map_epoch,
                 "search_bounds": self.search_bounds, "event": self.event, "target_box_id": self.target_id,
-                "target_detection": self.target_detection, "collected_box_ids": list(self.collected), "action": action}
+                "target_detection": self.target_detection, "collected_box_ids": list(self.collected), "confirmed_box_ids": sorted(self.opened.confirmed),
+                "camera_not_before": self.camera_not_before, "action": action}

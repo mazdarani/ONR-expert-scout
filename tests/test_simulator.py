@@ -27,7 +27,7 @@ def test_telemetry_handles_string_pid_copied_files_and_partial_writes(tmp_path):
     assert reader.read()['_sourceMtime']==stamp
     value['curState']='SAGAT'
     path.write_text(json.dumps(value))
-    assert reader.read()['curState']=='SAGAT'
+    assert reader.read()['curState']=='sagat'
     value['curState']='endProgram'
     path.write_text(json.dumps(value))
     assert reader.read()['curState']=='endProgram'

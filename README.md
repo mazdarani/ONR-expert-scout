@@ -169,6 +169,21 @@ An already-recorded nearest box is ignored. Collected IDs are excluded from late
 approaches. There is **no added post-collection dwell**; scouting resumes subject
 to the diver-distance rule. Python observes `F` and does not generate it.
 
+An F press made while searching is retained even when the next update is already
+on the SAGAT questionnaire. All movement and confidence keys stop during the
+questionnaire. Returning to searching resumes the same mission with collected
+IDs preserved; camera frames from before resuming are ignored.
+
+Unity telemetry also recovers missed collection events. An opened box's findTime
+clock stops while the other clocks and searching time advance. A frozen clock
+for at least 0.5 seconds across three advancing snapshots must agree with
+boxesFound before its ID is confirmed.
+Questionnaire time and repeated snapshots do not count as evidence. If the
+collection count indicates an opened box whose ID is still unknown, the scout
+holds instead of choosing a possibly opened target. This also recovers IDs after
+a controller restart. Ambiguous evidence keeps movement paused and prints a
+message; it never selects an arbitrary ID.
+
 Set `route_mode` to `grid` to use the earlier randomized grid with YOLO-triggered
 approach. Its waypoint jitter is 2.5 m and depth jitter is 1.5 m. Both modes use
 the same diver-distance limits and collection wait. Distances
@@ -176,11 +191,16 @@ are configurable in `configs/expert.json`. This version does not load OpenVLA.
 
 ## Confidence feedback
 
-The controller sends a confidence shortcut whenever its latest camera result
-contains a box detection at or above the YOLO threshold. If several boxes are
-visible, the highest-confidence box detection selects the category. Sending is
-independent of target matching, distance, movement state and telemetry freshness;
-keys may repeat even when the category or captured frame has not changed.
+The controller sends the highest eligible YOLO box confidence during searching,
+without requiring arrival at a target. Camera and telemetry must be current.
+When collected IDs are known, detections are associated with simulator boxes
+using the camera bearing. A detection matched to an opened box is ignored. An
+unidentified detection or a bearing match ambiguous with an opened box is also
+ignored. A different, clearly matched unopened box can still send confidence.
+
+YOLO itself may visually recognize an open box. This filtering applies to target
+selection and confidence output; it does not change the trained detector or
+claim perfect visual identity recognition.
 
 | YOLO score | Category | Shortcut |
 | --- | --- | --- |
@@ -203,8 +223,8 @@ distribution when changing the detector, lighting or camera settings.
 The keyboard interface carries the category. The exact numeric YOLO score is
 printed and saved in the run logs. `sent=True` records a successful key press;
 it does not confirm that Unity displayed the corresponding feedback. Box identity
-and collected-ID filtering belong to navigation; confidence signaling uses the
-visible detections independently.
+and collected-ID filtering use simulator telemetry. Confidence output also
+filters detections associated with those collected IDs.
 
 ## Telemetry and map compatibility
 
@@ -215,12 +235,13 @@ partial writes. Movement requires the `searching` state, a complete AUV pose and
 telemetry no more than one second old.
 
 Target positions are read from the current `boxTimeList`; the controller does
-not assume a fixed number of boxes. Collection follows the original `F`-key
-proximity inference described above. Changes to `boxesFound`, stopped `findTime`
-clocks or a `collectedBoxIds` field do not mark a box collected on their own.
-This reproduces the original interaction rule; an accepted F press does not
-independently verify that Unity actually opened the box. Events from inactive,
-stale or previous-map snapshots are discarded.
+not assume a fixed number of boxes. The original F-key proximity inference is
+supplemented by confirmed IDs from frozen findTime clocks and boxesFound, or
+explicit collectedBoxIds when supplied by a later build. The count alone never
+identifies a box. Inferred IDs and telemetry-confirmed IDs are recorded separately
+as collected_box_ids and confirmed_box_ids in the action and status logs.
+Stale events and events from a previous mission are discarded; a valid searching
+event queued immediately before SAGAT is processed during the pause.
 
 The map is selected from telemetry `mapType` or `mapString`. Grid profiles in
 `configs/maps.json` use the simulator's constraint-volume bounds with 2 m boundary
@@ -254,6 +275,7 @@ reason in both action and status logs.
 | --- | --- |
 | `telemetry_wait` | Read the accompanying message for the selected path and missing or stale data. Match participant IDs and enter a running scenario. |
 | Wrong telemetry folder | Start Unity before Python, or provide `--sim-dir` pointing to the launched executable's folder. |
+| `waiting_for_collection_identity` | Unity reports a collection, but the opened ID is not yet confirmed. Wait for advancing searching telemetry; ambiguous timer evidence keeps the scout paused. |
 | `waiting_for_map` | Check the telemetry map identifier and configured search profile. |
 | Grid moves but YOLO does not detect boxes | Check the AUV monitor index and checkpoint path in `configs/expert.json`. |
 | Commands reach the terminal or AUV does not respond | Return focus to the Unity window. |

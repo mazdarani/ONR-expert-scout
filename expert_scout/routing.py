@@ -8,6 +8,11 @@ def valid_position(position):
         and math.isfinite(position[axis]) for axis in ('x', 'y', 'z')))
 
 
+def valid_rotation(rotation):
+    yaw = rotation.get('y') if isinstance(rotation, dict) else None
+    return isinstance(yaw, (int, float)) and not isinstance(yaw, bool) and math.isfinite(yaw)
+
+
 def distance(first, second):
     return math.dist([first[a] for a in ('x', 'y', 'z')], [second[a] for a in ('x', 'y', 'z')])
 

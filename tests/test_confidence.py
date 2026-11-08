@@ -22,15 +22,15 @@ def test_exact_score_boundaries(score, level):
 def feedback():
     keys = []
     actuator = SimpleNamespace(tap_key=lambda key: (keys.append(key) or {'key': key, 'sent': True}))
-    capture = SimpleNamespace(detections=[{'class_name': 'box', 'confidence': .8}])
+    capture = SimpleNamespace(timestamp=100, width=100, detections=[{'class_name': 'box', 'confidence': .8}])
     # These values would have blocked the former target/proximity sender.
     record = {'phase': 'searching', 'target_box_id': None, 'target_detection': None}
-    snapshot = {'curState': 'SAGAT', '_sourceMtime': 0, 'latestPositions': {}, 'boxTimeList': []}
+    snapshot = {'curState': 'searching', '_sourceMtime': 100, 'latestPositions': {}, 'boxTimeList': []}
     return SimpleNamespace(sender=ConfidenceSender(Config(), actuator), keys=keys, record=record,
                            snapshot=snapshot, capture=capture)
 
 
-def test_detection_sends_immediately_without_target_or_telemetry_conditions(feedback):
+def test_detection_sends_without_target_or_proximity_while_searching(feedback):
     result = feedback.sender.update(feedback.record, feedback.snapshot, 100, feedback.capture)
     assert result['score'] == .8
     assert result['level'] == 'medium'

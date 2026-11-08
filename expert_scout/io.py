@@ -59,16 +59,22 @@ class TelemetryReader:
             value = json.loads(content)
             if not isinstance(value, dict):
                 raise ValueError("Participant telemetry must contain a JSON object")
+            if "latestPositions" in value and not isinstance(value["latestPositions"], dict):
+                raise ValueError("latestPositions must be an object")
+            if "boxTimeList" in value and (not isinstance(value["boxTimeList"], list)
+                    or any(not isinstance(box, dict) for box in value["boxTimeList"])):
+                raise ValueError("boxTimeList must be a list of objects")
             state = next((value[k] for k in ("curState", "currState", "currentState", "stateName", "gameState")
                           if isinstance(value.get(k), str)), None)
             if state is None and isinstance(value.get("latestPositions"), dict) and "totalTime" in value:
                 state = "endProgram" if str(value.get("endTime") or "").strip() else "searching"
-            normalized = str(state or "").replace("_", "").replace("-", "").lower()
+            normalized = str(state or "").strip().replace("_", "").replace("-", "").lower()
             # Unity state labels have varied in capitalization and separator use
             # across builds. Normalize lifecycle states before the controller
             # decides whether to hold position or reset a new session.
             value["curState"] = {
                 "searching": "searching",
+                "sagat": "sagat",
                 "titlescreen": "titleScreen",
                 "endscreen": "endScreen",
                 "endprogram": "endProgram",

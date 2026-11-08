@@ -97,11 +97,13 @@ def test_collected_boxes_do_not_trigger_new_approaches(setup):
     assert result['target_box_id'] is None
 
 
-def test_known_box_in_mixed_view_suppresses_expert(setup):
+def test_opened_box_does_not_suppress_a_different_unopened_box(setup):
     setup.collected.append(0)
     setup.snapshot['boxTimeList'].append({'boxID':1,'boxPosition':{'x':5,'y':0,'z':10}})
     setup.capture.detections.append(dict(setup.capture.detections[0],xywh=[79.5,40,10,10]))
-    assert setup.step()['phase']=='searching'
+    result=setup.step()
+    assert result['phase']=='approaching'
+    assert result['target_box_id']==1
 
 
 def test_diver_follow_pause_has_hysteresis(setup):
@@ -159,13 +161,13 @@ def test_bad_time_limits_are_rejected():
             build_parser().parse_args(['--pid','0','--duration-sec',value])
 
 
-def test_telemetry_count_or_frozen_clock_does_not_confirm_without_f(setup):
+def test_explicit_opened_ids_recover_a_missed_f(setup):
     setup.snapshot['boxTimeList'][0]['boxPosition']['z']=1
     setup.step()
     setup.snapshot.update(boxesFound=1, totalTime=20, collectedBoxIds=[0])
     result=setup.step(101)
-    assert result['phase']=='waiting_for_diver'
-    assert setup.collected==[]
+    assert result['phase']=='searching'
+    assert setup.collected==[0]
 
 
 def test_telemetry_wait_reports_missing_pose_and_stale_source_separately(setup):

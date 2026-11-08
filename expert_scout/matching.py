@@ -1,15 +1,18 @@
 """Associate YOLO boxes with simulator targets using the expert bearing rule."""
 import math
+from .routing import valid_position, valid_rotation
 
 
 def match_detections(snapshot, detections, frame_width, config):
-    positions = snapshot.get("latestPositions", {})
+    positions = snapshot.get("latestPositions") or {}
+    if not isinstance(positions, dict):
+        return []
     auv, rotation = positions.get("auvPosition"), positions.get("auvRotation")
-    if not auv or not rotation or not frame_width:
+    if not valid_position(auv) or not valid_rotation(rotation) or not isinstance(frame_width, (int, float)) or not math.isfinite(frame_width) or frame_width <= 0:
         return []
     yaw = math.radians(float(rotation["y"]))
     matches = []
-    for detection in detections:
+    for detection_index, detection in enumerate(detections):
         label = str(detection.get("class_name", "")).lower()
         confidence = detection.get("confidence")
         if not any(word in label for word in ("box", "crate", "container", "case")):
@@ -24,17 +27,23 @@ def match_detections(snapshot, detections, frame_width, config):
             continue
         bearing = (xywh[0] / frame_width - 0.5) * math.radians(config.camera_hfov_deg)
         best = None
-        for box in snapshot.get("boxTimeList", []):
+        candidates = []
+        for box in (snapshot.get("boxTimeList") or []):
+            if not isinstance(box, dict):
+                continue
             target, box_id = box.get("boxPosition"), box.get("boxID")
-            if not isinstance(target, dict) or not isinstance(box_id, int) or isinstance(box_id, bool):
+            if not valid_position(target) or not isinstance(box_id, int) or isinstance(box_id, bool):
                 continue
             dx, dz = float(target["x"]) - float(auv["x"]), float(target["z"]) - float(auv["z"])
             relative = (math.atan2(dx, dz) - yaw + math.pi) % (2 * math.pi) - math.pi
             error = abs((relative - bearing + math.pi) % (2 * math.pi) - math.pi)
             score = error + min(math.hypot(dx, dz), 100) * 0.0005
-            if error <= math.radians(config.match_tolerance_deg) and (best is None or score < best[0]):
-                best = (score, box_id)
+            if error <= math.radians(config.match_tolerance_deg):
+                candidates.append((error, box_id))
+                if best is None or score < best[0]:
+                    best = (score, box_id, error)
         if best is not None:
-            matches.append({"box_id": best[1], "confidence": confidence, "timestamp": detection.get("timestamp"),
+            matches.append({"box_id": best[1], "detection_index": detection_index,
+                            "candidate_box_ids": [box_id for error, box_id in candidates if error <= best[2] + math.radians(2)], "confidence": confidence, "timestamp": detection.get("timestamp"),
                             "area": xywh[2] * xywh[3], "bearing_error": best[0]})
     return sorted(matches, key=lambda match: (-match["area"], match["bearing_error"]))
