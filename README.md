@@ -85,28 +85,56 @@ python main.py --role scout-expert --pid 0 --sim-dir "C:\Simulators\simulator"
 
 ## Run an experiment
 
-1. Launch `ONR Scuba.exe`, choose a participant ID and start a scenario.
-2. Place the AUV camera on monitor **2** and the diver view on the other display.
-3. Activate the Python environment and launch the controller with the same ID:
-
-   ```bat
-   .venv\Scripts\activate.bat
-   python main.py --role scout-expert --pid 0
-   ```
-
-4. Return focus to the Unity window so it receives the generated keyboard input.
-
-The terminal prints the telemetry location, selected map and controller state.
-Detection feedback includes the numeric score, confidence category and key sent:
+Open `01-simulator` and start the assigned scenario. Then open `02-cmd.bat`:
 
 ```text
-YOLO: confidence=0.800, level=medium, key=SHIFT+2, sent=True
+Participant ID: 123
+Condition: 1=Training, 2=Control, 3=CFF: Control
 ```
 
-There is **no default time limit**. Stop Python with `Ctrl+C`, or set a limit with
-`--duration-sec`. Menus, SAGAT, oxygen depletion and stale telemetry suspend AUV
-movement while Python remains running. Starting another scenario with the same
-participant ID resets the route, target and collected-box history.
+Use the spreadsheet assignment when choosing Unity's settings. The launcher reads
+the map and General/Local presentation from telemetry. It waits until the selected
+participant, map and Control/CFF settings match. CFF Condition A is Control/off;
+B is CFF/on. Exp Condition A is General, B is Local. Training uses the training
+map with CFF off and records data without driving the AUV.
+
+Keep the AUV view on monitor 2, with the diver view on the other display. Return
+focus to Unity after the controller starts. At the end of a mission, exit Unity
+normally: the launcher stops the controller and finishes copying the final Unity
+files. No terminal redirection, file renaming or moving OutputData is needed.
+
+Each run has a new folder, for example:
+
+```text
+participant_data/PID123/Control/20261108_143000_a1b2c3d4/
+├── session.json             Participant, condition, map and General/Local settings
+├── session_result.json      Completion status and any recording error
+├── console.txt              Terminal output
+├── controller/              config.json, actions.jsonl and status.json
+└── simulator/               Current Unity participant and final position files
+    ├── initial_state.json
+    └── last_searching.json
+```
+
+The recorder copies only the active participant file and newly written position
+files for that participant. It preserves the originals in simulator/OutputData;
+older COPY files and other participants are not merged into the archive. Retries
+use a new session folder rather than replacing previous data. A missing or locked
+final file is reported, with recording_complete set to false in session_result.json.
+OBS video remains in the recording path configured in OBS.
+
+The direct command remains available:
+
+```bat
+python main.py --role scout-expert --pid 0
+```
+
+Direct runs have no default time limit and keep their outputs under logs/expert.
+Stop them with Ctrl+C. The two-input launcher instead finishes automatically when
+Unity writes endProgram on exit; SAGAT and oxygen pauses do not finish a session.
+If you stop the controller with Ctrl+C during a managed run, recording continues
+until Unity closes. A second Ctrl+C saves the available files and marks an incomplete
+recording if final Unity data is not yet available.
 
 ### Simulator shortcuts
 
@@ -133,6 +161,7 @@ AUV through `I/K`, `J/L`, `U/O`, `N/M` and the light-flash key `P`.
 | `--duration-sec 600` | Stop after ten minutes; default is unlimited. |
 | `--dry-run` | Log requested actions without sending keyboard input. |
 | `--map map1` | Override automatic map selection with `training`, `map1` or `map2`. |
+| `--run-dir "C:\path\new-run"` | Save controller output to a specific new folder. |
 | `--config "C:\path\expert.json"` | Load an alternative runtime configuration. |
 
 Run `python main.py --role scout-expert --help` for the command-line reference.

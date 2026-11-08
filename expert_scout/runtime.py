@@ -5,6 +5,7 @@ import math
 import secrets
 import time
 import uuid
+from pathlib import Path
 from .config import ROOT, load_config
 from .io import RunLog, StatusWriter, TelemetryReader, atomic_json
 from .maps import load_search_areas
@@ -32,14 +33,15 @@ def build_parser():
     parser.add_argument("--monitor-index", type=int, help="Override the AUV capture monitor")
     parser.add_argument("--seed", type=int, help="Repeat a randomized grid route")
     parser.add_argument("--duration-sec", type=duration, default=0, help="Optional time limit; default is unlimited")
+    parser.add_argument("--run-dir", help="Save this run to a specific new directory")
     parser.add_argument("--dry-run", action="store_true", help="Record actions without pressing keys")
     return parser
 
 
-def main():
+def main(argv=None, session_check=None):
     from dataclasses import replace
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         config = load_config(args.config)
         search_areas = load_search_areas(config.path("map_profiles_path"))
@@ -73,7 +75,7 @@ def main():
     confidence_sender = ConfidenceSender(config, actuator)
     interactions = DiverInteractions(state)
     episode = uuid.uuid4().hex
-    run_dir = config.path("output_directory") / f"pid_{args.pid}" / episode
+    run_dir = Path(args.run_dir).expanduser().resolve() if args.run_dir else config.path("output_directory") / f"pid_{args.pid}" / episode
     run_dir.mkdir(parents=True)
     atomic_json(run_dir / "config.json", dict(asdict(config), seed=seed, duration_sec=args.duration_sec, simulator_path=str(sim_dir), map_selection=args.map, simulator_location_source=location_source))
     log = RunLog(run_dir / "actions.jsonl")
@@ -93,6 +95,10 @@ def main():
                 raise RuntimeError(f"AUV capture failed: {detector.error}")
             snapshot = reader.read()
             telemetry = reader.diagnostics()
+            if session_check is not None:
+                session_check(snapshot)
+                if snapshot.get("curState") == "endProgram":
+                    break
             state.update(snapshot)
             capture = detector.snapshot()
             record = controller.step(snapshot, capture, interactions.drain())
