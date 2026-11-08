@@ -2,14 +2,14 @@
   "detector_path": "checkpoints/yolo_box_detector_cvat_yolov8n_e20_best.pt",
   "monitor_index": 2,
   "detector_confidence": 0.25,
-  "collection_distance": 1.5,
-  "collection_dwell_sec": 10,
+  "collection_distance": 5.0,
   "simulator_directory": "simulator",
   "diver_max_separation": 5.0,
-  "diver_resume_separation": 3.0,
+  "diver_resume_separation": 5.0,
   "medium_confidence": 0.72,
   "high_confidence": 0.82,
   "confidence_key_interval_sec": 0.75,
   "map_profiles_path": "configs/maps.json",
-  "route_mode": "nearest"
+  "route_mode": "nearest",
+  "interaction_distance": 10.0
 }

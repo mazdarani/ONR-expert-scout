@@ -57,6 +57,7 @@ def main():
     from .grid import GridSearchNavigator
     from .state import AtomicState
     from .vision import Detector
+    from .interaction import DiverInteractions
     state, collected = AtomicState(), []
     seed = args.seed if args.seed is not None else secrets.randbits(32)
     grid = GridSearchNavigator(state, "scout", collected, lambda role: None,
@@ -70,6 +71,7 @@ def main():
     detector = Detector(config.path("detector_path"), config.monitor_index, config.detector_confidence)
     actuator = DryRunActuator() if args.dry_run else KeyboardActuator()
     confidence_sender = ConfidenceSender(config, actuator)
+    interactions = DiverInteractions(state)
     episode = uuid.uuid4().hex
     run_dir = config.path("output_directory") / f"pid_{args.pid}" / episode
     run_dir.mkdir(parents=True)
@@ -82,6 +84,7 @@ def main():
     previous = None
     previous_wait = None
     try:
+        interactions.start()
         detector.start()
         started = time.time()
         while not args.duration_sec or time.time() - started < args.duration_sec:
@@ -91,7 +94,7 @@ def main():
             telemetry = reader.diagnostics()
             state.update(snapshot)
             capture = detector.snapshot()
-            record = controller.step(snapshot, capture)
+            record = controller.step(snapshot, capture, interactions.drain())
             action = record.pop("action")
             record.update(episode_id=episode, pid=args.pid, published_at=time.time(),
                           selected_action=action.to_dict(), actuation=actuator.apply(action), telemetry=telemetry)
@@ -120,5 +123,6 @@ def main():
         print("Expert scout stopped.")
     finally:
         actuator.close()
+        interactions.close()
         detector.close()
         log.close()

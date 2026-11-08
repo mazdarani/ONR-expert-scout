@@ -5,73 +5,12 @@ import tempfile
 from unittest.mock import patch
 
 from expert_scout.io import TelemetryReader
-from expert_scout.simulator import CollectionTracker
 from expert_scout.runtime import build_parser
 
 
 def snapshot(time, found=0, clocks=(10,10), state='searching'):
     return {'totalTime':time,'boxesFound':found,'curState':state,
             'boxTimeList':[{'boxID':i,'findTime':value} for i,value in enumerate(clocks)]}
-
-
-def test_opened_box_zero_is_identified_while_other_clock_advances():
-    tracker=CollectionTracker()
-    assert tracker.update(snapshot(10))==set()
-    assert tracker.update(snapshot(10.2,1,(10,10.2)))==set()
-    assert tracker.update(snapshot(10.6,1,(10,10.6)))=={0}
-    assert tracker.update(snapshot(11,1,(10,11)))=={0}
-
-
-def test_count_increase_alone_does_not_collect_the_current_target():
-    tracker=CollectionTracker()
-    tracker.update(snapshot(10))
-    assert tracker.update(snapshot(11,1,(11,11)))==set()
-
-
-def test_frozen_clock_without_collection_count_is_not_confirmation():
-    tracker=CollectionTracker()
-    tracker.update(snapshot(10))
-    assert tracker.update(snapshot(11,0,(10,11)))==set()
-
-
-def test_pause_cannot_be_mistaken_for_open_boxes():
-    tracker=CollectionTracker()
-    tracker.update(snapshot(10))
-    tracker.update(snapshot(20,1,(10,10),'sagat'))
-    assert tracker.update(snapshot(21,1,(10,10)))==set()
-    assert tracker.update(snapshot(21.6,1,(10,10.6)))=={0}
-
-
-def test_ambiguous_frozen_clocks_do_not_guess_a_box_id():
-    tracker=CollectionTracker()
-    tracker.update(snapshot(10))
-    assert tracker.update(snapshot(11,1,(10,10)))==set()
-    assert tracker.update(snapshot(12,2,(10,10)))=={0,1}
-
-
-def test_repeated_file_or_backwards_clock_cannot_confirm_collection():
-    tracker=CollectionTracker()
-    tracker.update(snapshot(10))
-    for _ in range(20):
-        assert tracker.update(snapshot(10,1))==set()
-    assert tracker.update(snapshot(1,1))==set()
-    assert tracker.update(snapshot(1.1,1))==set()
-
-
-def test_collection_ids_are_authoritative_and_never_undone():
-    tracker=CollectionTracker()
-    value=snapshot(10)
-    value['collectedBoxIds']=[0]
-    assert tracker.update(value)=={0}
-    assert tracker.update(snapshot(11))=={0}
-
-
-def test_missing_timers_do_not_claim_success():
-    tracker=CollectionTracker()
-    value=snapshot(10,1,clocks=(None,float('nan')))
-    assert tracker.update(value)==set()
-    value['totalTime']=11
-    assert tracker.update(value)==set()
 
 
 def test_telemetry_handles_string_pid_copied_files_and_partial_writes(tmp_path):

@@ -22,31 +22,31 @@ def make_run(boxes):
     collected = []
     grid = GridSearchNavigator(state, 'scout', collected, lambda role: None)
     approach = OracleBoxNavigator(state, 'scout', collected, lambda role: None, lambda box: None,
-                                  collection_distance=1.5, yaw_threshold=.3, collision_threshold=1.5)
+                                  collection_distance=5.0, yaw_threshold=.3, collision_threshold=1.5)
     controller = ExpertController(Config(), grid, approach, collected)
     snapshot = {'curState': 'searching', 'totalTime': 10, 'boxesFound': 0,
                 'boxTimeList': boxes, 'collectedBoxIds': [],
                 'latestPositions': {'auvPosition': {'x': 0., 'y': -23.36, 'z': 0.},
                                     'auvRotation': {'y': 0.},
                                     'diverPosition': {'x': 0., 'y': -23.36, 'z': 0.}}}
-    def step(now=100):
+    def step(now=100, press=False):
         snapshot['_sourceMtime'] = now
         state.update(snapshot)
         with patch('time.time', return_value=now):
-            return controller.step(snapshot, None)
+            return controller.step(snapshot, None, [dict(state.snapshot(), _interaction_time=now)] if press else ())
     return controller, snapshot, step
 
 
 def boxes():
-    return [{'boxID': 1, 'boxPosition': {'x': 0, 'y': -23.36, 'z': 8}},
-            {'boxID': 2, 'boxPosition': {'x': 0, 'y': -23.36, 'z': 3}}]
+    return [{'boxID': 1, 'boxPosition': {'x': 0, 'y': -23.36, 'z': 13}},
+            {'boxID': 2, 'boxPosition': {'x': 0, 'y': -23.36, 'z': 8}}]
 
 
 def test_default_launch_uses_nearest_with_realistic_escort_distance():
     config = load_config(ROOT / 'configs/expert.json')
     assert config.route_mode == 'nearest'
     assert config.diver_max_separation == 5
-    assert config.diver_resume_separation == 3
+    assert config.diver_resume_separation == 5
 
 
 def test_nearest_uses_coordinates_not_input_order_distance_field_or_yolo():
@@ -61,7 +61,7 @@ def test_escort_pause_covers_approach_and_resumes_same_target():
     controller, snapshot, step = make_run(boxes())
     snapshot['latestPositions']['diverPosition']['x'] = 6
     assert step()['action'].source == 'waiting_for_diver_to_follow'
-    snapshot['latestPositions']['diverPosition']['x'] = 4
+    snapshot['latestPositions']['diverPosition']['x'] = 5
     assert step()['action'].is_empty()
     snapshot['latestPositions']['diverPosition']['x'] = 3
     record = step()
@@ -71,18 +71,20 @@ def test_escort_pause_covers_approach_and_resumes_same_target():
     assert step()['action'].source == 'waiting_for_diver_pose'
 
 
-def test_box_wait_survives_diver_leaving_missing_target_and_other_collection():
+def test_box_wait_signals_once_then_rotates_and_flashes_until_f():
     controller, snapshot, step = make_run(boxes())
-    snapshot['latestPositions']['auvPosition']['z'] = 2
-    assert step()['phase'] == 'waiting_for_diver'
-    snapshot['latestPositions']['diverPosition']['z'] = 50
-    snapshot['boxTimeList'] = []
-    snapshot['collectedBoxIds'] = [1]
-    assert step(500)['action'].is_empty()
-    assert controller.target_id == 2
-    snapshot['collectedBoxIds'] = [1, 2]
-    assert step(501)['phase'] == 'collection_dwell'
-    assert step(511)['action'].is_empty()
+    snapshot['latestPositions']['auvPosition']['z'] = 7
+    action = step()['action']
+    assert action.signal and action.yaw_right and action.lights
+    snapshot['latestPositions']['diverPosition']['z'] = 9
+    action = step(500)['action']
+    assert not action.signal and action.yaw_right and action.lights
+    assert not any(getattr(action, a) for a in ('forward','backward','left','right','up','down'))
+    assert controller.collected == []
+    result = step(501, press=True)
+    assert controller.collected == [2]
+    assert result['phase'] == 'approaching'
+    assert result['target_box_id'] == 1
 
 
 def test_lost_target_does_not_move_to_a_different_box():
@@ -93,10 +95,11 @@ def test_lost_target_does_not_move_to_a_different_box():
     assert controller.target_id == 2
 
 
-def test_count_without_identity_holds_instead_of_revisiting_an_open_box():
+def test_count_without_f_does_not_change_original_collection_inference():
     controller, snapshot, step = make_run(boxes())
     snapshot['boxesFound'] = 1
-    assert step()['action'].source == 'waiting_for_collection_identity'
+    assert step()['target_box_id'] == 2
+    assert controller.collected == []
 
 
 def test_tie_break_and_invalid_coordinates():
@@ -109,7 +112,7 @@ def test_tie_break_and_invalid_coordinates():
 
 
 @pytest.mark.parametrize('layout', LAYOUTS)
-def test_full_route_with_real_navigator_waits_for_each_opened_id(layout):
+def test_full_route_with_real_navigator_handles_each_diver_interaction(layout):
     targets = [{'boxID': b['id'], 'boxPosition': b['position']} for b in LAYOUTS[layout]]
     controller, snapshot, step = make_run(targets)
     pose = snapshot['latestPositions']
@@ -124,11 +127,11 @@ def test_full_route_with_real_navigator_waits_for_each_opened_id(layout):
         if record['phase'] == 'waiting_for_diver':
             target = record['target_box_id']
             assert target not in visited
-            assert action.is_empty()
+            assert action.yaw_right and action.lights
             # No timeout or loss of YOLO may release the box wait.
-            assert step(now + 300)['action'].is_empty()
+            assert step(now + 300)['action'].yaw_right
             visited.append(target)
-            snapshot['collectedBoxIds'].append(target)
+            step(now, press=True)
             snapshot['boxesFound'] += 1
         else:
             yaw = pose['auvRotation']['y']
@@ -154,6 +157,6 @@ def test_approach_turns_before_forward_and_closes_diagonal_arrival_gap():
     assert action.yaw_left and not action.forward
     target = snapshot['boxTimeList'][1]['boxPosition']
     snapshot['latestPositions']['auvRotation']['y'] = 0
-    snapshot['latestPositions']['auvPosition'] = dict(x=0, y=target['y']+.49, z=target['z']-1.49)
+    snapshot['latestPositions']['auvPosition'] = dict(x=0, y=target['y']+.49, z=target['z']-4.99)
     action = step()['action']
     assert action.forward and action.down

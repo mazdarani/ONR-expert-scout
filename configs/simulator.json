@@ -4,9 +4,10 @@
   "telemetry_directory": "OutputData",
   "file_pattern": "ParticipantData_PID_<id>*.json",
   "collection_fields": [
-    "boxesFound",
+    "latestPositions.auvPosition",
+    "latestPositions.diverPosition",
     "boxTimeList[].boxID",
-    "boxTimeList[].findTime"
+    "boxTimeList[].boxPosition"
   ],
   "confidence_receiver_present": true,
   "maps": {
@@ -26,5 +27,6 @@
     "low": "shift+1",
     "medium": "shift+2",
     "high": "shift+3"
-  }
+  },
+  "collection_confirmation": "Participant F press with original 10 m 3D proximity checks"
 }

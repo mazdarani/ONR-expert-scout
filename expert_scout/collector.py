@@ -104,7 +104,7 @@ class CollectorNavigator(Navigator):
             f"x={box_pos['x']}, y={box_pos['y']}, z={box_pos['z']}, distance={box_dist:.2f}"
         )
 
-        if box_dist <= self._collection_distance:
+        if box_dist < self._collection_distance:
             box_id = self._next_box["id"]
             print(f"[Collector] AUV is close enough to self-collect box {box_id}.")
             self._clear_motion_keys()

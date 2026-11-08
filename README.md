@@ -144,31 +144,34 @@ The default `route_mode` in `configs/expert.json` is `nearest`. Selection uses
 3D distance from the current AUV position to every unopened box in `boxTimeList`.
 The closest box is selected first, with box ID breaking equal-distance ties.
 That target remains fixed during approach and waiting; a different camera
-observation does not redirect the AUV. After collection and the dwell, the next
+observation does not redirect the AUV. After collection, the next
 choice uses the AUV's actual position. This is a nearest-neighbor route, rather
 than a globally shortest tour. YOLO is used for confidence feedback and is not
 required to trigger travel.
 
-During travel, the scout **stops beyond 5 m from the diver** and resumes once the
-diver is **within 3 m**. Missing diver position also stops travel. This applies
-to box approaches as well as the optional grid search. The AUV turns toward its
-target before moving forward, while retaining the existing obstacle rules.
+During travel, the scout **stops beyond 5 m horizontally from the diver** and
+resumes when horizontal separation is **below 5 m**, using the original X/Z
+measurement. Missing diver position also stops travel. The stop-when-separated
+rule is retained; unlike the original companion mode, this version does not
+travel back toward the diver.
 
-At **1.5 m from its target**, the AUV releases movement and waits for that specific
-box to be opened. It stays there if the diver swims away, the camera loses the
-box, or the box temporarily disappears from telemetry. It does not follow the
-diver away from an unopened target. Confirmed collection triggers three light
-flashes and a **10-second dwell**, followed by the next nearest unopened box.
-If the diver is still too far away, travel remains paused. When all boxes have
-been opened, the AUV stops.
+Within **5 m of the target in 3D**, the scout signals once with `0`, then rotates
+clockwise and flashes `P` while waiting, matching the original box behavior and
+obstacle rules. Waiting ends when the participant presses `F` and the original
+proximity checks accept the interaction. It is also released if no nearby box
+can be found or the AUV drifts at least 10 m from its nearest box.
 
-Only confirmed opened IDs are excluded from later approaches. A collection count
-increase without an identifiable box holds movement until identity is resolved.
-The controller never presses the diver's collection key.
+Collection is **inferred from the participant's F press**, using the simulator
+snapshot at that instant. The diver's nearest box must be within **10 m in 3D**.
+If the AUV and diver are also within 10 m in 3D, the interaction releases a current
+box wait; a farther-away collection is recorded while preserving that wait.
+An already-recorded nearest box is ignored. Collected IDs are excluded from later
+approaches. There is **no added post-collection dwell**; scouting resumes subject
+to the diver-distance rule. Python observes `F` and does not generate it.
 
 Set `route_mode` to `grid` to use the earlier randomized grid with YOLO-triggered
 approach. Its waypoint jitter is 2.5 m and depth jitter is 1.5 m. Both modes use
-the same diver-distance limits and collection wait. Distances and dwell settings
+the same diver-distance limits and collection wait. Distances
 are configurable in `configs/expert.json`. This version does not load OpenVLA.
 
 ## Confidence feedback
@@ -212,11 +215,12 @@ partial writes. Movement requires the `searching` state, a complete AUV pose and
 telemetry no more than one second old.
 
 Target positions are read from the current `boxTimeList`; the controller does
-not assume a fixed number of boxes. Collection is confirmed using `boxesFound`
-and a box's `findTime` remaining fixed for at least 0.5 seconds while searching
-time advances. Repeated snapshots and pauses do not count as collection.
-Ambiguous evidence keeps the AUV waiting. Explicit `collectedBoxIds`, when
-provided by the simulator, are accepted directly.
+not assume a fixed number of boxes. Collection follows the original `F`-key
+proximity inference described above. Changes to `boxesFound`, stopped `findTime`
+clocks or a `collectedBoxIds` field do not mark a box collected on their own.
+This reproduces the original interaction rule; an accepted F press does not
+independently verify that Unity actually opened the box. Events from inactive,
+stale or previous-map snapshots are discarded.
 
 The map is selected from telemetry `mapType` or `mapString`. Grid profiles in
 `configs/maps.json` use the simulator's constraint-volume bounds with 2 m boundary
@@ -287,5 +291,5 @@ represent obstacle-avoidance trajectories.
 
 The compatibility record in `configs/simulator.json` includes the inspected
 assembly and map-asset hashes. Inspection confirms the top-row confidence
-shortcuts `Shift+1`, `Shift+2` and `Shift+3`, and the collection telemetry used
+shortcuts `Shift+1`, `Shift+2` and `Shift+3`, and the position telemetry used
 by this controller. Live movement and feedback still require a simulator run.

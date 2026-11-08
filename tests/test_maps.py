@@ -116,14 +116,13 @@ def test_explicit_map_override_works_without_map_telemetry(run):
 
 
 def test_map_switch_clears_targets_route_and_reused_opened_ids(run):
-    run.snapshot['collectedBoxIds']=[0]
     run.step()
+    run.collected.append(0)
     assert run.collected==[0]
     run.controller.target_id=1
     run.controller.phase='approaching'
     run.approach.set_target_box(1)
     run.approach._get_next_box()
-    run.snapshot.pop('collectedBoxIds')
     run.snapshot['mapType']=2
     run.snapshot['totalTime']=11
     run.snapshot['boxTimeList']=[{'boxID':b['id'],'boxPosition':b['position'],'findTime':11} for b in POSITIONS['map2']]
@@ -137,9 +136,8 @@ def test_map_switch_clears_targets_route_and_reused_opened_ids(run):
 
 
 def test_restart_on_same_map_clears_old_collection_history(run):
-    run.snapshot['collectedBoxIds']=[0]
     run.step()
-    del run.snapshot['collectedBoxIds']
+    run.collected.append(0)
     run.snapshot['totalTime']=0
     assert run.step(101)['collected_box_ids']==[]
 
@@ -188,9 +186,8 @@ def test_invalid_boundary_profile_is_rejected(tmp_path):
 
 
 def test_new_trial_on_same_map_resets_ids_even_if_global_clock_does_not_restart(run):
-    run.snapshot['collectedBoxIds']=[0]
     run.step()
-    del run.snapshot['collectedBoxIds']
+    run.collected.append(0)
     run.snapshot['curState']='titleScreen'
     run.step(101)
     run.snapshot['curState']='searching'
@@ -202,9 +199,8 @@ def test_new_trial_on_same_map_resets_ids_even_if_global_clock_does_not_restart(
 
 @pytest.mark.parametrize('reset_state',['outOfOxygen','endProgram'])
 def test_oxygen_or_end_program_reset_clears_ids_for_the_next_session(run,reset_state):
-    run.snapshot['collectedBoxIds']=[0]
     run.step()
-    del run.snapshot['collectedBoxIds']
+    run.collected.append(0)
     run.snapshot['curState']=reset_state
     run.step(101)
     run.snapshot['curState']='searching'
@@ -224,8 +220,8 @@ def test_camera_frame_from_previous_map_cannot_trigger_new_target(run):
 
 
 def test_sagat_does_not_reset_map_or_opened_history(run):
-    run.snapshot['collectedBoxIds']=[0]
     run.step()
+    run.collected.append(0)
     run.snapshot['curState']='sagat'
     run.step(101)
     run.snapshot['curState']='searching'

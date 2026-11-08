@@ -19,13 +19,13 @@ class Config:
     detection_frames: int = 1
     camera_hfov_deg: float = 90.0
     match_tolerance_deg: float = 25.0
-    collection_distance: float = 1.5
-    collection_dwell_sec: float = 10.0
+    collection_distance: float = 5.0
+    interaction_distance: float = 10.0
     max_sensor_age_sec: float = 1.0
     waypoint_jitter: float = 2.5
     depth_jitter: float = 1.5
     diver_max_separation: float = 5.0
-    diver_resume_separation: float = 3.0
+    diver_resume_separation: float = 5.0
     map_profiles_path: str = "configs/maps.json"
     # The simulator bundled with this repository writes OutputData here.
     simulator_directory: str = "simulator"
@@ -38,14 +38,14 @@ class Config:
             if not isinstance(getattr(self, name), str) or not getattr(self, name).strip():
                 raise ValueError(f"{name} must be a nonempty string")
         for name in ("detector_confidence", "medium_confidence", "high_confidence", "confidence_key_interval_sec", "camera_hfov_deg", "match_tolerance_deg", "collection_distance",
-                     "collection_dwell_sec", "max_sensor_age_sec", "waypoint_jitter", "depth_jitter",
+                     "interaction_distance", "max_sensor_age_sec", "waypoint_jitter", "depth_jitter",
                      "diver_max_separation", "diver_resume_separation"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be a finite nonnegative number")
         if not 0 <= self.detector_confidence <= 1 or not 0 < self.camera_hfov_deg < 180:
             raise ValueError("Invalid detector confidence or camera field of view")
-        if not 0 < self.match_tolerance_deg <= 90 or self.collection_distance <= 0 or self.max_sensor_age_sec <= 0:
+        if not 0 < self.match_tolerance_deg <= 90 or self.collection_distance <= 0 or self.interaction_distance <= 0 or self.max_sensor_age_sec <= 0:
             raise ValueError("Distances, sensor age and matching tolerance must be positive")
         if not self.detector_confidence < self.medium_confidence < self.high_confidence <= 1:
             raise ValueError("Confidence cutoffs must increase from the detector threshold to 1")
