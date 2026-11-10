@@ -178,17 +178,20 @@ choice uses the AUV's actual position. This is a nearest-neighbor route, rather
 than a globally shortest tour. YOLO is used for confidence feedback and is not
 required to trigger travel.
 
-During travel, the scout **stops beyond 5 m horizontally from the diver** and
-resumes when horizontal separation is **below 5 m**, using the original X/Z
-measurement. Missing diver position also stops travel. The stop-when-separated
-rule is retained; unlike the original companion mode, this version does not
-travel back toward the diver.
+During travel, the scout **switches to companion mode beyond 5 m horizontally
+from the diver** and follows the diver. It resumes scouting when horizontal
+separation is **below 5 m**, using the original X/Z measurement. The selected
+unopened target is retained during following. Missing diver position stops travel.
+After all boxes are collected, the AUV follows the diver whenever they move away.
+The terminal and action log identify following with `controller=companion`.
 
 Within **5 m of the target in 3D**, the scout signals once with `0`, then rotates
 clockwise and flashes `P` while waiting, matching the original box behavior and
 obstacle rules. Waiting ends when the participant presses `F` and the original
 proximity checks accept the interaction. It is also released if no nearby box
 can be found or the AUV drifts at least 10 m from its nearest box.
+As in the original controller, a box wait takes priority over switching to
+companion mode: the AUV stays by the unopened box even if the diver moves away.
 
 Collection is **inferred from the participant's F press**, using the simulator
 snapshot at that instant. The diver's nearest box must be within **10 m in 3D**.

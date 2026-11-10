@@ -106,13 +106,14 @@ def test_opened_box_does_not_suppress_a_different_unopened_box(setup):
     assert result['target_box_id']==1
 
 
-def test_diver_follow_pause_has_hysteresis(setup):
+def test_diver_follow_has_hysteresis(setup):
     setup.controller.config=replace(setup.config,diver_max_separation=5,diver_resume_separation=3)
     setup.capture.detections=[]
     setup.snapshot['latestPositions']['diverPosition']['z']=7
-    assert setup.step()['action'].source=='waiting_for_diver_to_follow'
+    assert setup.step()['action'].source=='companion'
+    assert setup.step()['action'].forward
     setup.snapshot['latestPositions']['diverPosition']['z']=4
-    assert setup.step()['action'].is_empty()
+    assert setup.step()['action'].forward
     setup.snapshot['latestPositions']['diverPosition']['z']=2
     assert setup.step()['action'].source=='grid'
 

@@ -83,7 +83,8 @@ def test_external_simulator_telemetry_allows_grid_motion(tmp_path):
     snapshot=reader.read()
     grid=SimpleNamespace(action=lambda:Action(forward=True,source='grid'),set_search_area=lambda area:None,
                          mark_opened_area=lambda position:None)
-    approach=SimpleNamespace(clear_target_box=lambda:None,_clear_motion_keys=lambda:None)
+    approach=SimpleNamespace(clear_target_box=lambda:None,_clear_motion_keys=lambda:None,
+                             _state=None,_collision_threshold=1.5,_yaw_threshold=.3)
     areas=load_search_areas(Path(__file__).resolve().parents[1]/'configs/maps.json')
     controller=ExpertController(Config(route_mode="grid"),grid,approach,[],areas)
     record=controller.step(snapshot,None)

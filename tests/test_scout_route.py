@@ -58,12 +58,14 @@ def test_nearest_uses_coordinates_not_input_order_distance_field_or_yolo():
     assert step()['target_box_id'] == 2  # Do not switch targets mid-approach.
 
 
-def test_escort_pause_covers_approach_and_resumes_same_target():
+def test_companion_follows_during_approach_and_resumes_same_target():
     controller, snapshot, step = make_run(boxes())
     snapshot['latestPositions']['diverPosition']['x'] = 6
-    assert step()['action'].source == 'waiting_for_diver_to_follow'
+    action = step()['action']
+    assert action.source == 'companion' and action.yaw_right
+    assert not action.forward
     snapshot['latestPositions']['diverPosition']['x'] = 5
-    assert step()['action'].is_empty()
+    assert step()['action'].source == 'companion'
     snapshot['latestPositions']['diverPosition']['x'] = 3
     record = step()
     assert record['target_box_id'] == 2
@@ -75,6 +77,7 @@ def test_escort_pause_covers_approach_and_resumes_same_target():
 def test_box_wait_signals_once_then_rotates_and_flashes_until_f():
     controller, snapshot, step = make_run(boxes())
     snapshot['latestPositions']['auvPosition']['z'] = 7
+    snapshot['latestPositions']['diverPosition']['z'] = 7
     action = step()['action']
     assert action.signal and action.yaw_right and action.lights
     snapshot['latestPositions']['diverPosition']['z'] = 9

@@ -157,6 +157,7 @@ def test_coordinate_approach_uses_new_layout_and_arrives_at_each_box(run,name,bo
     assert record['action'].forward
     # No static coordinate table: the next pose is supplied by telemetry.
     run.snapshot['latestPositions']['auvPosition']={'x':target['x'],'y':target['y']+1,'z':target['z']}
+    run.snapshot['latestPositions']['diverPosition']=dict(run.snapshot['latestPositions']['auvPosition'])
     frame.timestamp=100.1
     record=run.step(100.1,frame)
     assert record['event']=='box_reached'

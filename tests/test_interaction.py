@@ -55,7 +55,7 @@ def test_listener_queues_only_f_with_the_pose_at_keypress_and_stops():
 def test_escort_distance_is_horizontal_and_resume_has_no_three_meter_delay():
     controller, current, step = make_run(boxes())
     current['latestPositions']['diverPosition'] = {'x':6,'y':-23.36,'z':0}
-    assert step()['action'].is_empty()
+    assert step()['action'].source == 'companion'
     current['latestPositions']['diverPosition'] = {'x':4.9,'y':20,'z':0}
     assert step()['action'].forward
     assert controller.target_id == 2
@@ -64,6 +64,7 @@ def test_escort_distance_is_horizontal_and_resume_has_no_three_meter_delay():
 def test_collection_of_a_remote_box_keeps_current_box_wait_like_original():
     controller, current, step = make_run(boxes())
     current['latestPositions']['auvPosition']['z'] = 7
+    current['latestPositions']['diverPosition']['z'] = 7
     step()
     current['boxTimeList'].append({'boxID':3,'boxPosition':{'x':0,'y':-23.36,'z':40}})
     current['latestPositions']['diverPosition']['z'] = 40

@@ -1,6 +1,7 @@
 """Nearest-box scouting with the original diver interaction rules."""
 import time
 from .action import Action
+from .companion import CompanionNavigator
 from .matching import match_detections
 from .interaction import collection_from_interaction
 from .maps import map_name
@@ -18,6 +19,10 @@ class ExpertController:
         self.new_session = False
         self.map_epoch = 0
         self.map_changed_at = None
+        self.companion = CompanionNavigator(
+            approach._state, "scout", collected, lambda role: None,
+            collision_threshold=approach._collision_threshold,
+            yaw_threshold=approach._yaw_threshold)
         self._reset_control()
         self.approach._collect_box = self.reached
 
@@ -29,7 +34,7 @@ class ExpertController:
         self.streak = 0
         self.candidate_id = None
         self.last_frame = None
-        self.diver_paused = False
+        self.following_diver = False
         self.opened = OpenedBoxes()
         self.was_active = False
         self.camera_not_before = None
@@ -88,23 +93,23 @@ class ExpertController:
         self.approach.clear_target_box()
         self.streak = 0
 
-    def _diver_wait(self, snapshot):
+    def _diver_action(self, snapshot):
         pose = snapshot.get("latestPositions", {})
         auv, diver = pose.get("auvPosition"), pose.get("diverPosition")
         if not valid_position(auv) or not valid_position(diver):
             return Action.none(source="waiting_for_diver_pose")
         separation = ((auv["x"] - diver["x"]) ** 2 + (auv["z"] - diver["z"]) ** 2) ** 0.5
         if separation > self.config.diver_max_separation:
-            self.diver_paused = True
+            if not self.following_diver:
+                self.event = "companion_started"
+            self.following_diver = True
         elif separation < self.config.diver_resume_separation:
-            self.diver_paused = False
-        if self.diver_paused:
-            return Action.none(source="waiting_for_diver_to_follow")
+            if self.following_diver:
+                self.event = "scouting_resumed"
+            self.following_diver = False
+        if self.following_diver:
+            return self.companion.action(self.config.diver_resume_separation)
         return None
-
-    def _grid_action(self, snapshot):
-        wait = self._diver_wait(snapshot)
-        return wait if wait is not None else self.grid.action()
 
     def step(self, snapshot, capture, interactions=()):
         now = time.time()
@@ -176,7 +181,8 @@ class ExpertController:
                 boxes = snapshot.get("boxTimeList", [])
                 complete = boxes and all(b.get("boxID") in self.collected for b in boxes)
                 phase = "complete" if complete else "waiting_for_boxes"
-                return self._record(Action.none(source=phase), phase=phase)
+                action = self._diver_action(snapshot) if complete else None
+                return self._record(action if action is not None else Action.none(source=phase), phase=phase)
             self.target_id = candidate["boxID"]
             self.target_detection = next((m for m in matches if m["box_id"] == self.target_id), None)
             self.approach.set_target_box(self.target_id)
@@ -193,6 +199,10 @@ class ExpertController:
                 self.target_id, self.target_detection = candidate["box_id"], candidate
                 self.approach.set_target_box(self.target_id)
                 self.phase, self.event = "approaching", "expert_started"
+        if self.phase in ("searching", "approaching"):
+            companion = self._diver_action(snapshot)
+            if companion is not None:
+                return self._record(companion)
         if self.phase == "approaching":
             target = next((b for b in snapshot.get("boxTimeList", []) if b.get("boxID") == self.target_id), None)
             if target is None or not valid_position(target.get("boxPosition")):
@@ -201,8 +211,7 @@ class ExpertController:
                 self.reached(self.target_id)
                 action = self._waiting_action(signal=True)
             else:
-                wait = self._diver_wait(snapshot)
-                action = wait if wait is not None else self.approach.action()
+                action = self.approach.action()
                 if self.event == "box_reached":
                     action = self._waiting_action(signal=True)
         elif self.phase == "waiting_for_diver":
@@ -213,7 +222,7 @@ class ExpertController:
             else:
                 action = self._waiting_action()
         else:
-            action = self._grid_action(snapshot)
+            action = self.grid.action()
         return self._record(action)
 
     def _record(self, action, phase=None):
