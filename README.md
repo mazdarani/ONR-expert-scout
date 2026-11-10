@@ -13,6 +13,9 @@ python main.py --role scout-expert --pid 0
 
 ```text
 ONR-expert-scout/
+├── 01-simulator.bat                Start the supplied Unity build
+├── 02-cmd.bat                      Start a participant session
+├── setup.bat                       Install the Windows Python environment
 ├── main.py                         Command-line entry point
 ├── expert_scout/                   Detection, navigation, telemetry and controls
 ├── modules/                        Original ONR controller modules
@@ -54,6 +57,9 @@ Access to the private repository requires GitHub authentication. For an existing
 checkout, run `git pull --ff-only` before updating the dependencies. In PowerShell,
 activate the same environment with `.\.venv\Scripts\Activate.ps1`.
 
+You can also run `setup.bat` to create and install the environment automatically.
+Create desktop shortcuts to `01-simulator.bat` and `02-cmd.bat` for daily use.
+
 ### Simulator files
 
 Extract `ONRScubaConfirmationBox (1).zip`, rename the extracted
@@ -85,7 +91,7 @@ python main.py --role scout-expert --pid 0 --sim-dir "C:\Simulators\simulator"
 
 ## Run an experiment
 
-Open `01-simulator` and start the assigned scenario. Then open `02-cmd.bat`:
+Open `01-simulator.bat` and start the assigned scenario. Then open `02-cmd.bat`:
 
 ```text
 Participant ID: 123
